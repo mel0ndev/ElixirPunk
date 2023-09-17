@@ -1,6 +1,5 @@
 const std = @import("std"); 
-const raylib = @cImport({
-    @cInclude("raylib.h");
+const raylib = @cImport({ @cInclude("raylib.h");
 });
 const world = @import("./world.zig"); 
 var r  = std.rand.DefaultPrng.init(0); 
@@ -28,6 +27,38 @@ pub const TilePlacement = enum {
     BOTTOM_RIGHT,
 }; 
 
+pub const TileData = struct {
+    count: i16,
+    pos: Vec2, 
+    placement: TilePlacement,
+
+    pub fn init(n_count: i16, position: Vec2, place: TilePlacement) TileData {
+        const td = TileData{
+            .count = n_count,
+            .pos = position,
+            .placement = place
+        }; 
+
+        return td; 
+    } 
+};
+
+pub const Tile = struct {
+
+    tile_type: TileType,
+    tile_data: TileData,
+     
+    pub fn loadTexture(path: [*c]const u8) Texture2D {
+        const texture: Texture2D = raylib.LoadTexture(path); 
+        return texture; 
+    }
+
+    pub fn getPosition(self: *Tile) Vec2 {
+        return self.tile_data.pos; 
+    }
+}; 
+
+
 const GRASS_TILE_SIZE: u8 = 16; 
 const WATER_TILE_SIZE: u8 = 9; 
 const GROUND_TILE_SIZE: u8 = 9; 
@@ -35,15 +66,16 @@ pub var tile_set: std.AutoHashMap(u8, Vec2) = undefined;
 pub var tile_map_placement_data: std.AutoHashMap(TilePlacement, u8) = undefined; 
 pub var tile_list: [world.GRID_X][world.GRID_Y]Tile = undefined; 
 
-
+//maps the location in the tilemap file to the coordinates needed to draw
 pub fn createTileHashMap(alloc: std.mem.Allocator) !std.AutoHashMap(u8, Vec2) {
     tile_set = std.AutoHashMap(u8, Vec2).init(alloc);  
     return tile_set; 
 }
 
+//for the placement of tiles around grass tiles
 pub fn createTilePlacementHashMap(alloc: std.mem.Allocator) !std.AutoHashMap(TilePlacement, u8) {
     tile_map_placement_data = std.AutoHashMap(TilePlacement, u8).init(alloc);  
-    return tile_map_placement_data;  
+    return tile_map_placement_data; 
 }
 
 //can technically return an error
@@ -118,35 +150,4 @@ pub fn drawTiles(x: f32, y: f32, num: u8, texture: Texture2D) void {
     //    raylib.RED
     //); 
 }
-
-pub const TileData = struct {
-    count: i16,
-    pos: Vec2, 
-    placement: TilePlacement,
-
-    pub fn init(n_count: i16, position: Vec2, place: TilePlacement) TileData {
-        const td = TileData{
-            .count = n_count,
-            .pos = position,
-            .placement = place
-        }; 
-
-        return td; 
-    } 
-};
-
-pub const Tile = struct {
-
-    tile_type: TileType,
-    tile_data: TileData,
-     
-    pub fn loadTexture(path: [*c]const u8) Texture2D {
-        const texture: Texture2D = raylib.LoadTexture(path); 
-        return texture; 
-    }
-
-    pub fn getPosition(self: *Tile) Vec2 {
-        return self.tile_data.pos; 
-    }
-}; 
 

@@ -21,7 +21,7 @@ pub fn init(t: *Rect, w: f32, h: f32) Camera2D {
             .y = h
         },
         .rotation = 0.0,
-        .zoom = 1.0, 
+        .zoom = 1.5, 
     };    
 
     return c; 

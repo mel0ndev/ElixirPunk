@@ -26,10 +26,13 @@ pub fn createMap(alloc: std.mem.Allocator) !void {
     //gen hashmap data
     _ = try tiles.createTilePlacementHashMap(alloc); 
     _ = try tiles.createTileHashMap(alloc); 
+    _ = try foliage.createFoliageHashmap(alloc); 
+    foliage.createFoliageList(alloc); 
     GRASS_TEXTURE = tiles.Tile.loadTexture("src/world/assets/tiles/grass.png"); 
     try tiles.setTileMap();
+    try foliage.setFoliageMap(); 
     //  - convert to tilemap
-    convertToTiles(); 
+    try convertToTiles(); 
     //save converted data to file
 }
 
@@ -40,6 +43,8 @@ pub fn drawMap() !void {
             tiles.drawTiles(@floatFromInt(x), @floatFromInt(y), num, GRASS_TEXTURE); 
         } 
     }
+
+    foliage.drawFoliage(); 
 }
 
 pub fn cleanup() void {
@@ -92,18 +97,18 @@ fn iterateMapGen() void {
 }
 
 //TODO: convert map data into something that stores more data
-fn convertToTiles() void {
+fn convertToTiles() !void {
     for (0..GRID_X) |x| {
         for (0..GRID_Y) |y| {
             if (map[x][y] == 1) {
                 var placement = getCellToTile(@intCast(x), @intCast(y)); 
                 const tile_id = placementToTileId(placement);  
-                foliage.generateFoliageData(x, y); 
                 temp_map[x][y] = tile_id; 
             } else if (map[x][y] == 0) {
                 var random_num: u8 = r.random().intRangeLessThan(u8, 0, 50);
                 if (@mod(random_num, 20) == 0) {
                     random_num = r.random().intRangeLessThan(u8, 0, 6);
+                    try foliage.generateFoliageData(x, y); 
                     temp_map[x][y] = random_num; 
                 }
             }

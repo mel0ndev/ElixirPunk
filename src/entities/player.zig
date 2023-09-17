@@ -69,7 +69,7 @@ pub const Player = struct {
         } 
     } 
     
-    //TODO: handle diagonal 
+    //TODO: handle diagonal and sudden direction changes (opposite of previous dir)  
     pub fn movePlayer(self: *Player, speed: f32, delta_time: f32) void {
         //basic movement
         //lerp between current speed (0) and max speed (3) (0 -> 3)
@@ -78,52 +78,52 @@ pub const Player = struct {
 
         if (raylib.IsKeyDown(raylib.KEY_D)) {
             self.slide_dir_x = SlideX.RIGHT; 
-            self.current_speed.x += 0.1; 
+            self.current_speed.x += 0.05; 
             self.rect.x += self.current_speed.x * delta_time; 
         }
         
         if (raylib.IsKeyUp(raylib.KEY_D) and self.slide_dir_x == SlideX.RIGHT) {
             if (self.current_speed.x > 0) {
-                self.current_speed.x -= 0.1;          
+                self.current_speed.x -= 0.05;          
                 self.rect.x += self.current_speed.x * delta_time; 
             }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_A)) {
             self.slide_dir_x = SlideX.LEFT; 
-            self.current_speed.x += 0.1; 
+            self.current_speed.x += 0.05; 
             self.rect.x -= self.current_speed.x * delta_time; 
         }
 
         if (raylib.IsKeyUp(raylib.KEY_A) and self.slide_dir_x == SlideX.LEFT) {
             if (self.current_speed.x > 0) {
-                self.current_speed.x -= 0.1;          
+                self.current_speed.x -= 0.05;          
                 self.rect.x -= self.current_speed.x * delta_time; 
             }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_W)) {
             self.slide_dir_y = SlideY.UP; 
-            self.current_speed.y += 0.1; 
+            self.current_speed.y += 0.05; 
             self.rect.y -= self.current_speed.y * delta_time; 
         }
 
         if (raylib.IsKeyUp(raylib.KEY_W) and self.slide_dir_y == SlideY.UP) {
             if (self.current_speed.y > 0) {
-                self.current_speed.y -= 0.1;          
+                self.current_speed.y -= 0.05;          
                 self.rect.y -= self.current_speed.y * delta_time; 
             }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_S)) {
             self.slide_dir_y = SlideY.DOWN; 
-            self.current_speed.y += 0.1; 
+            self.current_speed.y += 0.05; 
             self.rect.y += self.current_speed.y * delta_time; 
         }
         
         if (raylib.IsKeyUp(raylib.KEY_S) and self.slide_dir_y == SlideY.DOWN) {
             if (self.current_speed.y > 0) {
-                self.current_speed.y -= 0.1;          
+                self.current_speed.y -= 0.05;          
                 self.rect.y += self.current_speed.y * delta_time; 
             }
         }
