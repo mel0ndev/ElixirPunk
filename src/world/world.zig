@@ -43,8 +43,6 @@ pub fn drawMap() !void {
             tiles.drawTiles(@floatFromInt(x), @floatFromInt(y), num, GRASS_TEXTURE); 
         } 
     }
-
-    foliage.drawFoliage(); 
 }
 
 pub fn cleanup() void {

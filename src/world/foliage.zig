@@ -3,9 +3,11 @@ const raylib = @cImport({
     @cInclude("raylib.h");
 });
 const tiles = @import("./tiles.zig"); 
+const entities = @import("../entities/entities.zig"); 
 var r  = std.rand.DefaultPrng.init(0); 
 const Texture2D = raylib.Texture2D; 
 const Vec2 = raylib.Vector2; 
+const Rect = raylib.Rectangle; 
 
 pub const FoliageType = enum {
     TREE,
@@ -14,39 +16,27 @@ pub const FoliageType = enum {
 }; 
 
 pub const Foliage = struct {
-    position: Vec2,
+    sprite: entities.Sprite,
     ftype: FoliageType,
     
-    pub fn createFoliage(pos: Vec2, ftype: FoliageType) Foliage {
+    pub fn createFoliage(
+        texture: Texture2D, 
+        rect: Rect, 
+        origin: Vec2, 
+        ftype: FoliageType
+        ) Foliage {
+
         var f = Foliage{
-            .position = pos,
+            .sprite = entities.Sprite{
+                .texture = texture,
+                .rect = rect,
+                .origin = origin,
+            },
             .ftype = ftype
         }; 
 
         return f; 
     }
-
-    pub fn drawFoliage(self: *const Foliage) void {
-        var texture = foliage_set.get(self.ftype).?; 
-        if (self.ftype == FoliageType.BUSH) {
-            raylib.DrawTextureEx(
-                texture,
-                self.position,
-                0, //rotation
-                2.0,
-                raylib.WHITE
-            ); 
-        } else if (self.ftype == FoliageType.TREE) {
-            raylib.DrawTextureEx(
-                texture,
-                self.position,
-                0, //rotation
-                1.0,
-                raylib.WHITE
-            ); 
-        } 
-    }
-
 };
 
 pub var foliage_set: std.AutoHashMap(FoliageType, Texture2D) = undefined; 
@@ -75,14 +65,36 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
         //tree or bush
         if (@mod(random_num, 4) == 0) {
             //bush only
+            var texture = foliage_set.get(FoliageType.BUSH).?; 
+            var texture_width: f32 = @floatFromInt(@divTrunc(texture.width, 2)); 
+            var texture_height: f32 = @floatFromInt(texture.height); 
             const foliage = Foliage.createFoliage(
-                Vec2{.x = @floatFromInt(x * 32), .y = @floatFromInt(y * 32)},
+                texture,
+                Rect{.x = @floatFromInt(x * 32), 
+                     .y = @floatFromInt(y * 32),
+                     .width = @floatFromInt(texture.width),
+                     .height = @floatFromInt(texture.height)
+                 },
+                 Vec2{.x = @as(f32, @floatFromInt(x * 32)) + texture_width,
+                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 5.0,
+                 },
                 FoliageType.BUSH
             );  
             try foliage_list.append(foliage); 
         } else {
+            var texture = foliage_set.get(FoliageType.TREE).?; 
+            var texture_width: f32 = @floatFromInt(@divTrunc(texture.width, 2)); 
+            var texture_height: f32 = @floatFromInt(texture.height); 
             const foliage = Foliage.createFoliage(
-                Vec2{.x = @floatFromInt(x * 32), .y = @floatFromInt(y * 32)},
+                texture,
+                Rect{.x = @floatFromInt(x * 32), 
+                     .y = @floatFromInt(y * 32),
+                     .width = @floatFromInt(texture.width),
+                     .height = @floatFromInt(texture.height)
+                 },
+                 Vec2{.x = @as(f32, @floatFromInt(x * 32)) + texture_width,
+                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 25.0,
+                 },
                 FoliageType.TREE
             );  
             try foliage_list.append(foliage); 
@@ -94,6 +106,12 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
 pub fn drawFoliage() void {
     for (foliage_list.items) |f| {
         Foliage.drawFoliage(&f); 
+    }
+}
+
+pub fn addToSpriteList() !void {
+    for (foliage_list.items) |f| {
+        try entities.entities_list.append(f.sprite);  
     }
 }
 

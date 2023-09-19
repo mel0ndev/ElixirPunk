@@ -53,14 +53,14 @@ pub const Bullet = struct {
         if (raylib.IsMouseButtonPressed(raylib.MOUSE_BUTTON_LEFT)) {
             const mouse_pos: Vec2 = raylib.GetMousePosition(); 
             const world_pos: Vec2 = raylib.GetScreenToWorld2D(mouse_pos, camera.*); 
-            var dx = world_pos.x - p.rect.x; 
-            var dy = world_pos.y - p.rect.y; 
+            var dx = world_pos.x - p.sprite.rect.x; 
+            var dy = world_pos.y - p.sprite.rect.y; 
 
             const length: f32 = @sqrt(dx * dx + dy * dy); 
             dx /= length; 
             dy /= length;
 
-            var bullet = init(p.rect.x, p.rect.y, p.rot, dx, dy, true); //alive
+            var bullet = init(p.sprite.rect.x, p.sprite.rect.y, p.rot, dx, dy, true); //alive
             
             //add bullet to array on first empty slot
             //array is full, check for bullets that are not alive and replace those    

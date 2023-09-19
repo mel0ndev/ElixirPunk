@@ -5,6 +5,7 @@ const raylib = @cImport({
 const player = @import("entities/player.zig"); 
 const camera = @import("entities/camera.zig"); 
 const enemies = @import("entities/enemies.zig"); 
+const entities = @import("entities/entities.zig"); 
 const world = @import("world/world.zig"); 
 const renderables = @import("./renderables.zig"); 
 
@@ -30,9 +31,10 @@ pub fn main() !void {
     var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 3); 
     var p = try player.Player.init(screenWidth / 2, screenHeight / 2, 16, 16, 0.0); 
     var bullet_list = renderables.initBulletList(45); 
+    _ = try entities.createEntitiesList(allocator); 
     //var tiles = world.Tile.loadTexture("src/world/grass.png"); 
     try world.createMap(allocator); 
-    var cam = camera.init(&p.rect, p.rect.x, p.rect.y); 
+    var cam = camera.init(&p.sprite.rect, p.sprite.rect.x, p.sprite.rect.y); 
     //_ = try world.createTileHapMap(allocator); 
     //try world.Tile.setTileMap(16); 
     //try world.Tile.pickTiles(); 
@@ -56,7 +58,9 @@ pub fn main() !void {
        //player updates 
         _ = player.Player.rotatePlayer(&p, &cam); 
         player.Player.movePlayer(&p, 3.0, delta_time); 
-        player.Player.drawPlayer(&p);   
+        //player.Player.drawPlayer(&p);   
+        //
+        try entities.drawEntitiesInOrder(&p); 
 
         camera.followPlayer(&cam, &p); 
         camera.zoomCamera(&cam); 

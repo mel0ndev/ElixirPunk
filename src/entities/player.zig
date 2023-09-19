@@ -3,6 +3,7 @@ const raylib = @cImport({
     @cInclude("raylib.h");
 });
 const renderables = @import("../renderables.zig"); 
+const entities = @import("./entities.zig"); 
 const math = @import("../math.zig"); 
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
@@ -19,9 +20,9 @@ const SlideY = enum {
 }; 
 
 pub const Player = struct {
-    
-    rect: Rect,
-    rot: f32, origin: Vec2, 
+
+    sprite: entities.Sprite, 
+    rot: f32,
     current_speed: Vec2,
     slide_dir_x: SlideX,
     slide_dir_y: SlideY,
@@ -29,18 +30,22 @@ pub const Player = struct {
 
 
     pub fn init(x: f32, y: f32, w: f32, h: f32, rotation: f32) !Player {
+        const texture = raylib.LoadTexture("src/world/assets/tiles/mc.png"); 
         var player = Player {
-            .rect = Rect {
-                .x = x, 
-                .y = y,
-                .width = w,
-                .height = h,
+            .sprite = entities.Sprite{
+                .texture = texture,
+                .rect = Rect {
+                    .x = x, 
+                    .y = y,
+                    .width = w,
+                    .height = h,
+                },
+                .origin = Vec2{ 
+                    .x = undefined,
+                    .y = undefined,
+                },
             },
             .rot = rotation,
-            .origin = Vec2{ 
-                .x = w / 2.0,
-                .y = h / 2.0
-            },
             .current_speed = Vec2 {
                 .x = 0,
                 .y = 0,     
@@ -49,25 +54,9 @@ pub const Player = struct {
             .slide_dir_y = undefined,
             .alive = true,
         }; 
-
+        
         return player; 
     }
-
-    pub fn drawPlayer(self: *Player) void {
-        if (self.alive == true) {
-            raylib.DrawRectanglePro(
-                raylib.Rectangle{
-                    .x = self.rect.x,
-                    .y = self.rect.y, 
-                    .width = self.rect.width,
-                    .height = self.rect.height,
-                }, 
-                self.origin,
-                self.rot,
-                raylib.BLACK
-            );  
-        } 
-    } 
     
     //TODO: handle diagonal and sudden direction changes (opposite of previous dir)  
     pub fn movePlayer(self: *Player, speed: f32, delta_time: f32) void {
@@ -79,52 +68,51 @@ pub const Player = struct {
         if (raylib.IsKeyDown(raylib.KEY_D)) {
             self.slide_dir_x = SlideX.RIGHT; 
             self.current_speed.x += 0.05; 
-            self.rect.x += self.current_speed.x * delta_time; 
+            self.sprite.rect.x += self.current_speed.x * delta_time; 
         }
         
         if (raylib.IsKeyUp(raylib.KEY_D) and self.slide_dir_x == SlideX.RIGHT) {
             if (self.current_speed.x > 0) {
                 self.current_speed.x -= 0.05;          
-                self.rect.x += self.current_speed.x * delta_time; 
+                self.sprite.rect.x += self.current_speed.x * delta_time; 
             }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_A)) {
             self.slide_dir_x = SlideX.LEFT; 
             self.current_speed.x += 0.05; 
-            self.rect.x -= self.current_speed.x * delta_time; 
+            self.sprite.rect.x -= self.current_speed.x * delta_time; 
         }
 
         if (raylib.IsKeyUp(raylib.KEY_A) and self.slide_dir_x == SlideX.LEFT) {
             if (self.current_speed.x > 0) {
                 self.current_speed.x -= 0.05;          
-                self.rect.x -= self.current_speed.x * delta_time; 
+                self.sprite.rect.x -= self.current_speed.x * delta_time; 
             }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_W)) {
             self.slide_dir_y = SlideY.UP; 
             self.current_speed.y += 0.05; 
-            self.rect.y -= self.current_speed.y * delta_time; 
+            self.sprite.rect.y -= self.current_speed.y * delta_time; 
         }
 
         if (raylib.IsKeyUp(raylib.KEY_W) and self.slide_dir_y == SlideY.UP) {
             if (self.current_speed.y > 0) {
                 self.current_speed.y -= 0.05;          
-                self.rect.y -= self.current_speed.y * delta_time; 
-            }
+                self.sprite.rect.y -= self.current_speed.y * delta_time; }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_S)) {
             self.slide_dir_y = SlideY.DOWN; 
             self.current_speed.y += 0.05; 
-            self.rect.y += self.current_speed.y * delta_time; 
+            self.sprite.rect.y += self.current_speed.y * delta_time; 
         }
         
         if (raylib.IsKeyUp(raylib.KEY_S) and self.slide_dir_y == SlideY.DOWN) {
             if (self.current_speed.y > 0) {
                 self.current_speed.y -= 0.05;          
-                self.rect.y += self.current_speed.y * delta_time; 
+                self.sprite.rect.y += self.current_speed.y * delta_time; 
             }
         }
     }
@@ -132,7 +120,7 @@ pub const Player = struct {
     pub fn rotatePlayer(self: *Player, camera: *Camera2D) f32 {
         const mouse_vec: Vec2 = raylib.GetMousePosition(); 
         const world_pos: Vec2 = raylib.GetScreenToWorld2D(mouse_vec, camera.*); 
-        const radians: f32 = std.math.atan2(f32, world_pos.y - self.rect.y, world_pos.x - self.rect.x);  
+        const radians: f32 = std.math.atan2(f32, world_pos.y - self.sprite.rect.y, world_pos.x - self.sprite.rect.x);  
         //this is what I was missing -> gotta be in degrees not radians
         const angle: f32 = std.math.radiansToDegrees(f32, radians); 
         
@@ -143,12 +131,23 @@ pub const Player = struct {
 
     pub fn getPlayerPos(self: *Player) Vec2 {
         return Vec2{
-            .x = self.rect.x,
-            .y = self.rect.y
+            .x = self.sprite.rect.x,
+            .y = self.sprite.rect.y
         };
     }
 
     pub fn getPlayerRect(self: *Player) Rect {
-        return self.rect; 
+        return self.sprite.rect; 
     }
+
+    pub fn updateOrigin(self: *Player) void {
+        self.sprite.origin = Vec2{
+            .x = self.sprite.rect.x + 8,
+            .y = self.sprite.rect.y + 8,
+        };
+    }
+
+    pub fn addToSpriteList(self: *Player) !void {
+        try entities.entities_list.append(self.sprite); 
+    } 
 }; 
