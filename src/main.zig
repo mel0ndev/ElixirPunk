@@ -31,7 +31,10 @@ pub fn main() !void {
     var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 3); 
     var p = try player.Player.init(screenWidth / 2, screenHeight / 2, 16, 16, 0.0); 
     var bullet_list = renderables.initBulletList(45); 
-    _ = try entities.createEntitiesList(allocator); 
+    var entities_list = try entities.createEntitiesList(allocator); 
+    var hitbox_list = try entities.createHitboxList(allocator); 
+    defer entities_list.deinit(); 
+    defer hitbox_list.deinit(); 
     //var tiles = world.Tile.loadTexture("src/world/grass.png"); 
     try world.createMap(allocator); 
     var cam = camera.init(&p.sprite.rect, p.sprite.rect.x, p.sprite.rect.y); 
@@ -61,6 +64,7 @@ pub fn main() !void {
         //player.Player.drawPlayer(&p);   
         //
         try entities.drawEntitiesInOrder(&p); 
+        //try entities.checkCollisions(&p); 
 
         camera.followPlayer(&cam, &p); 
         camera.zoomCamera(&cam); 

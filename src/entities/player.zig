@@ -22,6 +22,7 @@ const SlideY = enum {
 pub const Player = struct {
 
     sprite: entities.Sprite, 
+    hitbox: Rect,
     rot: f32,
     current_speed: Vec2,
     slide_dir_x: SlideX,
@@ -44,6 +45,12 @@ pub const Player = struct {
                     .x = undefined,
                     .y = undefined,
                 },
+            },
+            .hitbox = Rect{
+                .x = undefined,
+                .y = undefined, 
+                .width = w / 2.0,
+                .height = h - 2.0,
             },
             .rot = rotation,
             .current_speed = Vec2 {
@@ -73,7 +80,7 @@ pub const Player = struct {
         
         if (raylib.IsKeyUp(raylib.KEY_D) and self.slide_dir_x == SlideX.RIGHT) {
             if (self.current_speed.x > 0) {
-                self.current_speed.x -= 0.05;          
+                self.current_speed.x -= 0.15;          
                 self.sprite.rect.x += self.current_speed.x * delta_time; 
             }
         }
@@ -86,7 +93,7 @@ pub const Player = struct {
 
         if (raylib.IsKeyUp(raylib.KEY_A) and self.slide_dir_x == SlideX.LEFT) {
             if (self.current_speed.x > 0) {
-                self.current_speed.x -= 0.05;          
+                self.current_speed.x -= 0.15;          
                 self.sprite.rect.x -= self.current_speed.x * delta_time; 
             }
         }
@@ -99,7 +106,7 @@ pub const Player = struct {
 
         if (raylib.IsKeyUp(raylib.KEY_W) and self.slide_dir_y == SlideY.UP) {
             if (self.current_speed.y > 0) {
-                self.current_speed.y -= 0.05;          
+                self.current_speed.y -= 0.15;          
                 self.sprite.rect.y -= self.current_speed.y * delta_time; }
         }
 
@@ -111,7 +118,7 @@ pub const Player = struct {
         
         if (raylib.IsKeyUp(raylib.KEY_S) and self.slide_dir_y == SlideY.DOWN) {
             if (self.current_speed.y > 0) {
-                self.current_speed.y -= 0.05;          
+                self.current_speed.y -= 0.15;          
                 self.sprite.rect.y += self.current_speed.y * delta_time; 
             }
         }
@@ -140,14 +147,22 @@ pub const Player = struct {
         return self.sprite.rect; 
     }
 
-    pub fn updateOrigin(self: *Player) void {
+    pub fn updateLists(self: *Player) void {
         self.sprite.origin = Vec2{
             .x = self.sprite.rect.x + 8,
             .y = self.sprite.rect.y + 8,
+        };
+
+        self.hitbox = Rect{
+            .x = self.sprite.rect.x + 8 + (self.hitbox.width / 2.0),
+            .y = self.sprite.rect.y + 14,
+            .width = self.hitbox.width,
+            .height = self.hitbox.height,
         };
     }
 
     pub fn addToSpriteList(self: *Player) !void {
         try entities.entities_list.append(self.sprite); 
+        try entities.hitbox_list.append(self.hitbox); 
     } 
 }; 

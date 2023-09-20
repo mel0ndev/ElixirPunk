@@ -9,6 +9,7 @@ const Texture2D = raylib.Texture2D;
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
 
+//this is probably not needed, idr why I used an enum if I'm just going to set it directly?
 pub const FoliageType = enum {
     TREE,
     ROCK,
@@ -17,11 +18,13 @@ pub const FoliageType = enum {
 
 pub const Foliage = struct {
     sprite: entities.Sprite,
+    hitbox: Rect,
     ftype: FoliageType,
     
     pub fn createFoliage(
         texture: Texture2D, 
         rect: Rect, 
+        hitbox: Rect,
         origin: Vec2, 
         ftype: FoliageType
         ) Foliage {
@@ -32,6 +35,7 @@ pub const Foliage = struct {
                 .rect = rect,
                 .origin = origin,
             },
+            .hitbox = hitbox,
             .ftype = ftype
         }; 
 
@@ -68,19 +72,27 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
             var texture = foliage_set.get(FoliageType.BUSH).?; 
             var texture_width: f32 = @floatFromInt(@divTrunc(texture.width, 2)); 
             var texture_height: f32 = @floatFromInt(texture.height); 
+            //tex, sprite rec, hitbox, origin, type
             const foliage = Foliage.createFoliage(
                 texture,
                 Rect{.x = @floatFromInt(x * 32), 
                      .y = @floatFromInt(y * 32),
                      .width = @floatFromInt(texture.width),
                      .height = @floatFromInt(texture.height)
+                 }, 
+                Rect{.x = @as(f32, @floatFromInt(x * 32)) + texture_width - 5.0, 
+                     .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 12.0,
+                     .width = 10,
+                     .height = 10,
                  },
                  Vec2{.x = @as(f32, @floatFromInt(x * 32)) + texture_width,
-                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 5.0,
+                      .y = @as(f32, @floatFromInt(y * 32)),
                  },
                 FoliageType.BUSH
             );  
+
             try foliage_list.append(foliage); 
+
         } else {
             var texture = foliage_set.get(FoliageType.TREE).?; 
             var texture_width: f32 = @floatFromInt(@divTrunc(texture.width, 2)); 
@@ -92,28 +104,30 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
                      .width = @floatFromInt(texture.width),
                      .height = @floatFromInt(texture.height)
                  },
+                Rect{.x = @as(f32, @floatFromInt(x * 32)) + texture_width - 8, 
+                     .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 36.0,
+                     .width = 16,
+                     .height = 36,
+                 },
                  Vec2{.x = @as(f32, @floatFromInt(x * 32)) + texture_width,
-                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 25.0,
+                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 24.0,
                  },
                 FoliageType.TREE
             );  
+
             try foliage_list.append(foliage); 
             
         }
     } 
 }
 
-pub fn drawFoliage() void {
-    for (foliage_list.items) |f| {
-        Foliage.drawFoliage(&f); 
-    }
-}
-
 pub fn addToSpriteList() !void {
     for (foliage_list.items) |f| {
         try entities.entities_list.append(f.sprite);  
+        try entities.hitbox_list.append(f.hitbox); 
     }
 }
+
 
 
 

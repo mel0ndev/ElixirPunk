@@ -10,6 +10,7 @@ const Texture2D = raylib.Texture2D;
 
 
 pub var entities_list: std.ArrayList(Sprite) = undefined; 
+pub var hitbox_list: std.ArrayList(Rect) = undefined;  
 
 
 pub const Sprite = struct {
@@ -26,8 +27,13 @@ pub fn createEntitiesList(alloc: std.mem.Allocator) !std.ArrayList(Sprite) {
     return entities_list; 
 }
 
+pub fn createHitboxList(alloc: std.mem.Allocator) !std.ArrayList(Rect) {
+    hitbox_list = std.ArrayList(Rect).init(alloc);  
+    return hitbox_list; 
+}
+
 pub fn drawEntitiesInOrder(p: *player.Player) !void {
-    p.updateOrigin(); 
+    p.updateLists(); 
     try p.addToSpriteList(); 
     try foliage.addToSpriteList(); 
     var sorted_list = try sortEntitiesForDrawOrder(); 
@@ -49,7 +55,15 @@ pub fn drawEntitiesInOrder(p: *player.Player) !void {
         );
     }
 
+    for (hitbox_list.items) |hitbox| {
+        raylib.DrawRectangleRec(
+            hitbox,
+            raylib.BLUE
+        );
+    }
+
     entities_list.clearAndFree(); 
+    hitbox_list.clearAndFree(); 
 
 }
 
