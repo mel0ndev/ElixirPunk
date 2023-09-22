@@ -9,24 +9,14 @@ const Vec2 = raylib.Vector2;
 const Rect = raylib.Rectangle; 
 const Camera2D = raylib.Camera2D; 
 
-const SlideX = enum {
-    LEFT,
-    RIGHT,
-};
-
-const SlideY = enum {
-    UP, 
-    DOWN
-}; 
 
 pub const Player = struct {
 
     sprite: entities.Sprite, 
-    hitbox: Rect,
+    colliders: [4]Rect,
     rot: f32,
-    current_speed: Vec2,
-    slide_dir_x: SlideX,
-    slide_dir_y: SlideY,
+    speed: Vec2,
+    direction: Vec2,
     alive: bool,
 
 
@@ -38,27 +28,16 @@ pub const Player = struct {
                 .rect = Rect {
                     .x = x, 
                     .y = y,
-                    .width = w,
-                    .height = h,
-                },
+                    .width = w, .height = h, },
                 .origin = Vec2{ 
                     .x = undefined,
                     .y = undefined,
                 },
             },
-            .hitbox = Rect{
-                .x = undefined,
-                .y = undefined, 
-                .width = w / 2.0,
-                .height = h - 2.0,
-            },
+            .colliders = undefined,
             .rot = rotation,
-            .current_speed = Vec2 {
-                .x = 0,
-                .y = 0,     
-            },
-            .slide_dir_x = undefined,
-            .slide_dir_y = undefined,
+            .speed = Vec2{.x = 3, .y = 3}, 
+            .direction = Vec2{.x = 0, .y = 0}, 
             .alive = true,
         }; 
         
@@ -66,62 +45,41 @@ pub const Player = struct {
     }
     
     //TODO: handle diagonal and sudden direction changes (opposite of previous dir)  
-    pub fn movePlayer(self: *Player, speed: f32, delta_time: f32) void {
+    pub fn movePlayer(self: *Player, delta_time: f32) void {
         //basic movement
-        //lerp between current speed (0) and max speed (3) (0 -> 3)
-        self.current_speed.x = std.math.clamp(self.current_speed.x, 0, speed); 
-        self.current_speed.y = std.math.clamp(self.current_speed.y, 0, speed); 
+        //lerp between negative max and max speed (3) (0 -> 3)
+        //self.speed.x = std.math.clamp(self.speed.x, 0, speed); 
+        //self.speed.y = std.math.clamp(self.speed.y, 0, speed); 
+        self.direction = .{.x = 0, .y = 0};  
 
         if (raylib.IsKeyDown(raylib.KEY_D)) {
-            self.slide_dir_x = SlideX.RIGHT; 
-            self.current_speed.x += 0.05; 
-            self.sprite.rect.x += self.current_speed.x * delta_time; 
-        }
-        
-        if (raylib.IsKeyUp(raylib.KEY_D) and self.slide_dir_x == SlideX.RIGHT) {
-            if (self.current_speed.x > 0) {
-                self.current_speed.x -= 0.15;          
-                self.sprite.rect.x += self.current_speed.x * delta_time; 
-            }
+            self.direction.x = 1; 
+            self.sprite.rect.x += self.speed.x * delta_time; 
         }
 
         if (raylib.IsKeyDown(raylib.KEY_A)) {
-            self.slide_dir_x = SlideX.LEFT; 
-            self.current_speed.x += 0.05; 
-            self.sprite.rect.x -= self.current_speed.x * delta_time; 
-        }
-
-        if (raylib.IsKeyUp(raylib.KEY_A) and self.slide_dir_x == SlideX.LEFT) {
-            if (self.current_speed.x > 0) {
-                self.current_speed.x -= 0.15;          
-                self.sprite.rect.x -= self.current_speed.x * delta_time; 
-            }
+            self.direction.x = -1.0; 
+            self.sprite.rect.x -= self.speed.y * delta_time; 
         }
 
         if (raylib.IsKeyDown(raylib.KEY_W)) {
-            self.slide_dir_y = SlideY.UP; 
-            self.current_speed.y += 0.05; 
-            self.sprite.rect.y -= self.current_speed.y * delta_time; 
-        }
-
-        if (raylib.IsKeyUp(raylib.KEY_W) and self.slide_dir_y == SlideY.UP) {
-            if (self.current_speed.y > 0) {
-                self.current_speed.y -= 0.15;          
-                self.sprite.rect.y -= self.current_speed.y * delta_time; }
+            self.direction.y = -1.0;  
+            if (self.direction.x != 0) {
+                self.sprite.rect.y -= (self.speed.y / 2) * delta_time; 
+            } else {
+                self.sprite.rect.y -= self.speed.y * delta_time; 
+            }
         }
 
         if (raylib.IsKeyDown(raylib.KEY_S)) {
-            self.slide_dir_y = SlideY.DOWN; 
-            self.current_speed.y += 0.05; 
-            self.sprite.rect.y += self.current_speed.y * delta_time; 
-        }
-        
-        if (raylib.IsKeyUp(raylib.KEY_S) and self.slide_dir_y == SlideY.DOWN) {
-            if (self.current_speed.y > 0) {
-                self.current_speed.y -= 0.15;          
-                self.sprite.rect.y += self.current_speed.y * delta_time; 
+            self.direction.y = 1.0; 
+            if (self.direction.x != 0) {
+                self.sprite.rect.y += (self.speed.y / 2) * delta_time; 
+            } else {
+                self.sprite.rect.y += self.speed.y * delta_time; 
             }
         }
+        
     }
 
     pub fn rotatePlayer(self: *Player, camera: *Camera2D) f32 {
@@ -153,16 +111,40 @@ pub const Player = struct {
             .y = self.sprite.rect.y + 8,
         };
 
-        self.hitbox = Rect{
-            .x = self.sprite.rect.x + 8 + (self.hitbox.width / 2.0),
-            .y = self.sprite.rect.y + 14,
-            .width = self.hitbox.width,
-            .height = self.hitbox.height,
+        self.colliders = [4]Rect{
+            //top
+            Rect{
+                .x = self.sprite.rect.x + @as(f32, @floatFromInt(@divTrunc(self.sprite.texture.width, 2))),
+                .y = self.sprite.rect.y,
+                .width = 4,
+                .height = 4,
+            },
+            //right
+            Rect{
+                .x = self.sprite.rect.x + @as(f32, @floatFromInt(self.sprite.texture.width)) - 4,
+                .y = self.sprite.rect.y + @as(f32, @floatFromInt(@divTrunc(self.sprite.texture.height, 2))),
+                .width = 4,
+                .height = 4,
+            },
+            //bottom
+            Rect{
+                .x = self.sprite.rect.x + @as(f32, @floatFromInt(@divTrunc(self.sprite.texture.width, 2))),
+                .y = self.sprite.rect.y + @as(f32, @floatFromInt(self.sprite.texture.height)),
+                .width = 4,
+                .height = 4,
+            },
+            //left
+            Rect{
+                .x = self.sprite.rect.x,
+                .y = self.sprite.rect.y + @as(f32, @floatFromInt(@divTrunc(self.sprite.texture.height, 2))),
+                .width = 4,
+                .height = 4,
+            },
+            
         };
     }
 
     pub fn addToSpriteList(self: *Player) !void {
         try entities.entities_list.append(self.sprite); 
-        try entities.hitbox_list.append(self.hitbox); 
     } 
 }; 

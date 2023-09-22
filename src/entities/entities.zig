@@ -10,7 +10,7 @@ const Texture2D = raylib.Texture2D;
 
 
 pub var entities_list: std.ArrayList(Sprite) = undefined; 
-pub var hitbox_list: std.ArrayList(Rect) = undefined;  
+pub var collider_list: std.ArrayList(Rect) = undefined;  
 
 
 pub const Sprite = struct {
@@ -28,15 +28,17 @@ pub fn createEntitiesList(alloc: std.mem.Allocator) !std.ArrayList(Sprite) {
 }
 
 pub fn createHitboxList(alloc: std.mem.Allocator) !std.ArrayList(Rect) {
-    hitbox_list = std.ArrayList(Rect).init(alloc);  
-    return hitbox_list; 
+    collider_list = std.ArrayList(Rect).init(alloc);  
+    return collider_list; 
 }
 
+//TODO: move update logic outside of draw function
 pub fn drawEntitiesInOrder(p: *player.Player) !void {
-    p.updateLists(); 
+    p.updateLists(); //update origin and collider
     try p.addToSpriteList(); 
     try foliage.addToSpriteList(); 
     var sorted_list = try sortEntitiesForDrawOrder(); 
+    checkForHitboxCollisions(p); 
      
     for (sorted_list) |entity| {
         raylib.DrawTextureV(
@@ -47,24 +49,62 @@ pub fn drawEntitiesInOrder(p: *player.Player) !void {
     }
     
     //debug origin
-    for (sorted_list) |origin_point| {
-        raylib.DrawRectangleV(
-            origin_point.origin,
-            Vec2{.x = 5, .y = 5},
-            raylib.RED
-        );
-    }
+ //   for (sorted_list) |origin_point| {
+ //       raylib.DrawRectangleV(
+ //           origin_point.origin,
+ //           Vec2{.x = 5, .y = 5},
+ //           raylib.RED
+ //       );
+ //   }
 
-    for (hitbox_list.items) |hitbox| {
+    for (collider_list.items) |collider| {
         raylib.DrawRectangleRec(
-            hitbox,
+            collider,
             raylib.BLUE
         );
     }
 
-    entities_list.clearAndFree(); 
-    hitbox_list.clearAndFree(); 
+    for (p.colliders) |p_collider| {
+        raylib.DrawRectangleRec(
+            p_collider,
+            raylib.RED
+        ); 
+    }
 
+    entities_list.clearAndFree(); 
+    collider_list.clearAndFree(); 
+
+}
+
+//useless for collisions?
+pub fn checkForHitboxCollisions(p: *player.Player) void {
+    for (collider_list.items) |collider| {
+        for (p.colliders, 0..) |player_collider, i| {
+            const overlap: bool = raylib.CheckCollisionRecs(player_collider, collider); 
+            if (overlap == true) {
+                switch (i) {
+                    0 => {
+                        p.sprite.rect.y = collider.y + collider.height;
+                    },
+                    1 => {
+                        p.sprite.rect.x = 
+                            collider.x - @as(f32, @floatFromInt(
+                            p.sprite.texture.width)); 
+                    },
+                    2 => {
+                        p.sprite.rect.y = 
+                            collider.y - @as(f32, @floatFromInt(
+                                 p.sprite.texture.height));   
+                    }, 
+                    3 => {
+                        p.sprite.rect.x = 
+                            collider.x + collider.width;   
+                    }, 
+                    else => break,
+                }
+            }
+        }
+    }
 }
 
 

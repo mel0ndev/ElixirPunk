@@ -18,13 +18,13 @@ pub const FoliageType = enum {
 
 pub const Foliage = struct {
     sprite: entities.Sprite,
-    hitbox: Rect,
+    collider: Rect,
     ftype: FoliageType,
     
     pub fn createFoliage(
         texture: Texture2D, 
         rect: Rect, 
-        hitbox: Rect,
+        collider: Rect,
         origin: Vec2, 
         ftype: FoliageType
         ) Foliage {
@@ -35,7 +35,7 @@ pub const Foliage = struct {
                 .rect = rect,
                 .origin = origin,
             },
-            .hitbox = hitbox,
+            .collider = collider,
             .ftype = ftype
         }; 
 
@@ -72,7 +72,7 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
             var texture = foliage_set.get(FoliageType.BUSH).?; 
             var texture_width: f32 = @floatFromInt(@divTrunc(texture.width, 2)); 
             var texture_height: f32 = @floatFromInt(texture.height); 
-            //tex, sprite rec, hitbox, origin, type
+            //tex, sprite rec, collider, origin, type
             const foliage = Foliage.createFoliage(
                 texture,
                 Rect{.x = @floatFromInt(x * 32), 
@@ -124,7 +124,7 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
 pub fn addToSpriteList() !void {
     for (foliage_list.items) |f| {
         try entities.entities_list.append(f.sprite);  
-        try entities.hitbox_list.append(f.hitbox); 
+        try entities.collider_list.append(f.collider); 
     }
 }
 

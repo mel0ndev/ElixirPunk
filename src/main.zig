@@ -60,7 +60,7 @@ pub fn main() !void {
         
        //player updates 
         _ = player.Player.rotatePlayer(&p, &cam); 
-        player.Player.movePlayer(&p, 3.0, delta_time); 
+        player.Player.movePlayer(&p, delta_time); 
         //player.Player.drawPlayer(&p);   
         //
         try entities.drawEntitiesInOrder(&p); 
