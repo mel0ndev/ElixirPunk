@@ -21,13 +21,13 @@ pub const BasicEnemy = struct {
     pub fn init() BasicEnemy {
     
         var rand_x: f32 = @floatFromInt(r.random().intRangeLessThan(u32, 0, 1080)); 
-        var rand_y: f32 = @floatFromInt(r.random().intRangeLessThan(u32, 0, 720)); 
+        var rand_y: f32 = @floatFromInt(r.random().intRangeLessThan(u32, 0, 736)); 
         var enemy = BasicEnemy {
             .rect = Rect {
                 .x = rand_x, 
                 .y = rand_y, 
-                .width = 50,
-                .height = 50
+                .width = 16,
+                .height = 16
             }, 
             .alive = true,
         };
@@ -67,16 +67,14 @@ pub const BasicEnemy = struct {
 
     }
 
-    pub fn moveEnemy(player_ref: *player.Player) void {
-
-        var player_pos: Vec2 = player.Player.getPlayerPos(player_ref); 
+    pub fn moveEnemy(portal_pos: Vec2) void {
         for (enemy_list.items(.rect), enemy_list.items(.alive)) |*rect, *alive| {
             if (alive.* == true) {
                 var current_pos = Vec2{
                     .x = rect.*.x,
                     .y = rect.*.y
                 }; 
-                var move_vec = math.moveTowards(current_pos, player_pos); 
+                var move_vec = math.moveTowards(current_pos, portal_pos); 
                 rect.*.x = move_vec.x;
                 rect.*.y = move_vec.y; 
             } else {

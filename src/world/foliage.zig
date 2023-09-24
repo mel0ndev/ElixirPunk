@@ -9,12 +9,10 @@ const Texture2D = raylib.Texture2D;
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
 
-//this is probably not needed, idr why I used an enum if I'm just going to set it directly?
 pub const FoliageType = enum {
     TREE,
     ROCK,
-    BUSH,
-}; 
+    BUSH, }; 
 
 pub const Foliage = struct {
     sprite: entities.Sprite,
@@ -26,6 +24,7 @@ pub const Foliage = struct {
         rect: Rect, 
         collider: Rect,
         origin: Vec2, 
+        scale: f32,
         ftype: FoliageType
         ) Foliage {
 
@@ -34,6 +33,7 @@ pub const Foliage = struct {
                 .texture = texture,
                 .rect = rect,
                 .origin = origin,
+                .scale = scale,
             },
             .collider = collider,
             .ftype = ftype
@@ -52,8 +52,9 @@ pub fn createFoliageHashmap(alloc: std.mem.Allocator) !std.AutoHashMap(FoliageTy
     return foliage_set; 
 } 
 
-pub fn createFoliageList(alloc: std.mem.Allocator) void {
+pub fn createFoliageList(alloc: std.mem.Allocator) !std.ArrayList(Foliage) {
     foliage_list = std.ArrayList(Foliage).init(alloc); 
+    return foliage_list; 
 }
 
 pub fn setFoliageMap() !void {
@@ -88,6 +89,7 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
                  Vec2{.x = @as(f32, @floatFromInt(x * 32)) + texture_width,
                       .y = @as(f32, @floatFromInt(y * 32)),
                  },
+                1.0,
                 FoliageType.BUSH
             );  
 
@@ -104,14 +106,15 @@ pub fn generateFoliageData(x: usize, y: usize) !void {
                      .width = @floatFromInt(texture.width),
                      .height = @floatFromInt(texture.height)
                  },
-                Rect{.x = @as(f32, @floatFromInt(x * 32)) + texture_width - 8, 
-                     .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 36.0,
+                Rect{.x = @as(f32, @floatFromInt(x * 32)) + texture_width * 2 - 8, 
+                     .y = @as(f32, @floatFromInt(y * 32)) + texture_height * 2 - 24.0,
                      .width = 16,
-                     .height = 36,
+                     .height = 16,
                  },
                  Vec2{.x = @as(f32, @floatFromInt(x * 32)) + texture_width,
-                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height - 24.0,
+                      .y = @as(f32, @floatFromInt(y * 32)) + texture_height * 2 - 36,
                  },
+                2.0,
                 FoliageType.TREE
             );  
 

@@ -4,6 +4,7 @@ const raylib = @cImport({
 });
 const tiles = @import("./tiles.zig"); 
 const foliage = @import("./foliage.zig"); 
+const interactables = @import("../entities/interactables.zig"); 
 var r  = std.rand.DefaultPrng.init(0); 
 const Texture2D = raylib.Texture2D; 
 const Vec2 = raylib.Vector2; 
@@ -17,20 +18,17 @@ pub var GRASS_TEXTURE: Texture2D = undefined;
 var temp_map: [GRID_X][GRID_Y]u8 = undefined; 
 
 
-pub fn createMap(alloc: std.mem.Allocator) !void {
+pub fn createMap() !void {
     //create file basic file
     //
     var file = try createMapFile(); 
     //generate map data
     try generateMapData(file); 
     //gen hashmap data
-    _ = try tiles.createTilePlacementHashMap(alloc); 
-    _ = try tiles.createTileHashMap(alloc); 
-    _ = try foliage.createFoliageHashmap(alloc); 
-    foliage.createFoliageList(alloc); 
     GRASS_TEXTURE = tiles.Tile.loadTexture("src/world/assets/tiles/grass.png"); 
     try tiles.setTileMap();
     try foliage.setFoliageMap(); 
+    try interactables.initInteractables(); 
     //  - convert to tilemap
     try convertToTiles(); 
     //save converted data to file

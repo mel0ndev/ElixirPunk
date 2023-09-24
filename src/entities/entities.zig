@@ -4,6 +4,8 @@ const raylib = @cImport({
 });
 const player = @import("./player.zig"); 
 const foliage = @import("../world/foliage.zig"); 
+const interactables = @import("./interactables.zig"); 
+const towers = @import("./towers.zig");
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
 const Texture2D = raylib.Texture2D;
@@ -14,11 +16,10 @@ pub var collider_list: std.ArrayList(Rect) = undefined;
 
 
 pub const Sprite = struct {
-    
     texture: Texture2D,
     rect: Rect,
     origin: Vec2, 
-
+    scale: f32,
 };
 
 
@@ -37,39 +38,44 @@ pub fn drawEntitiesInOrder(p: *player.Player) !void {
     p.updateLists(); //update origin and collider
     try p.addToSpriteList(); 
     try foliage.addToSpriteList(); 
+    try interactables.addToSpriteList(); 
+    try towers.addToSpriteList(); 
     var sorted_list = try sortEntitiesForDrawOrder(); 
     checkForHitboxCollisions(p); 
+
      
     for (sorted_list) |entity| {
-        raylib.DrawTextureV(
+        raylib.DrawTextureEx(
             entity.texture,
             Vec2{.x = entity.rect.x, .y = entity.rect.y},
+            0, //rotation
+            entity.scale,
             raylib.WHITE
         );
     }
     
     //debug origin
- //   for (sorted_list) |origin_point| {
- //       raylib.DrawRectangleV(
- //           origin_point.origin,
- //           Vec2{.x = 5, .y = 5},
- //           raylib.RED
- //       );
- //   }
+   // for (sorted_list) |origin_point| {
+   //     raylib.DrawRectangleV(
+   //         origin_point.origin,
+   //         Vec2{.x = 5, .y = 5},
+   //         raylib.RED
+   //     );
+   // }
 
-    for (collider_list.items) |collider| {
-        raylib.DrawRectangleRec(
-            collider,
-            raylib.BLUE
-        );
-    }
+  //  for (collider_list.items) |collider| {
+  //      raylib.DrawRectangleRec(
+  //          collider,
+  //          raylib.BLUE
+  //      );
+  //  }
 
-    for (p.colliders) |p_collider| {
-        raylib.DrawRectangleRec(
-            p_collider,
-            raylib.RED
-        ); 
-    }
+    //for (p.colliders) |p_collider| {
+    //    raylib.DrawRectangleRec(
+    //        p_collider,
+    //        raylib.RED
+    //    ); 
+    //}
 
     entities_list.clearAndFree(); 
     collider_list.clearAndFree(); 
@@ -84,7 +90,7 @@ pub fn checkForHitboxCollisions(p: *player.Player) void {
             if (overlap == true) {
                 switch (i) {
                     0 => {
-                        p.sprite.rect.y = collider.y + collider.height;
+                        p.sprite.rect.y = collider.y + collider.height - 10.0;
                     },
                     1 => {
                         p.sprite.rect.x = 

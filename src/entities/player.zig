@@ -4,6 +4,7 @@ const raylib = @cImport({
 });
 const renderables = @import("../renderables.zig"); 
 const entities = @import("./entities.zig"); 
+const towers = @import("./towers.zig"); 
 const math = @import("../math.zig"); 
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
@@ -33,6 +34,7 @@ pub const Player = struct {
                     .x = undefined,
                     .y = undefined,
                 },
+                .scale = 1.0,
             },
             .colliders = undefined,
             .rot = rotation,
@@ -44,7 +46,6 @@ pub const Player = struct {
         return player; 
     }
     
-    //TODO: handle diagonal and sudden direction changes (opposite of previous dir)  
     pub fn movePlayer(self: *Player, delta_time: f32) void {
         //basic movement
         //lerp between negative max and max speed (3) (0 -> 3)
@@ -82,6 +83,12 @@ pub const Player = struct {
         
     }
 
+    pub fn spawnTower(camera: *Camera2D) !void {
+        if (raylib.IsKeyPressed(raylib.KEY_Q)) { 
+            try towers.generateTowerData(towers.TowerType.BASIC, camera); 
+        }
+    }
+
     pub fn rotatePlayer(self: *Player, camera: *Camera2D) f32 {
         const mouse_vec: Vec2 = raylib.GetMousePosition(); 
         const world_pos: Vec2 = raylib.GetScreenToWorld2D(mouse_vec, camera.*); 
@@ -115,7 +122,7 @@ pub const Player = struct {
             //top
             Rect{
                 .x = self.sprite.rect.x + @as(f32, @floatFromInt(@divTrunc(self.sprite.texture.width, 2))),
-                .y = self.sprite.rect.y,
+                .y = self.sprite.rect.y + 10.0,
                 .width = 4,
                 .height = 4,
             },
@@ -129,7 +136,7 @@ pub const Player = struct {
             //bottom
             Rect{
                 .x = self.sprite.rect.x + @as(f32, @floatFromInt(@divTrunc(self.sprite.texture.width, 2))),
-                .y = self.sprite.rect.y + @as(f32, @floatFromInt(self.sprite.texture.height)),
+                .y = self.sprite.rect.y + @as(f32, @floatFromInt(self.sprite.texture.height)) - 4.0,
                 .width = 4,
                 .height = 4,
             },
@@ -147,4 +154,4 @@ pub const Player = struct {
     pub fn addToSpriteList(self: *Player) !void {
         try entities.entities_list.append(self.sprite); 
     } 
-}; 
+};  
