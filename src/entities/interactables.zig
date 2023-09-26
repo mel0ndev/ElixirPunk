@@ -50,6 +50,8 @@ pub const Interactable = struct {
 };
 
 pub var interactable_list: std.ArrayList(Interactable) = undefined; 
+pub var altar: Interactable = undefined; 
+pub var portal: Interactable = undefined; 
 
 pub fn createInteractableList(alloc: std.mem.Allocator) !std.ArrayList(Interactable) {
     interactable_list = std.ArrayList(Interactable).init(alloc);  
@@ -60,9 +62,6 @@ pub fn initInteractables() !void {
     try createAltar();   
     try createPortal(); 
 }
-
-pub var altar: Interactable = undefined; 
-pub var portal: Interactable = undefined; 
 
 fn createAltar() !void {
     const altar_texture = raylib.LoadTexture("src/world/assets/interactives/altar.png"); 

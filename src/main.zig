@@ -22,17 +22,17 @@ pub fn main() !void {
     const allocator = arena.allocator(); 
 
     // Initialization
-    //--------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
     const screenWidth: f32 = 1280;
     const screenHeight: f32 = 736;
 
     raylib.InitWindow(screenWidth, screenHeight, "Elixir Punk -- Alpha v0.1");
 
     raylib.SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
     
     //init enemies array list
-    var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 5); 
+    var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 10); 
     defer enemy_list.deinit(allocator); 
     var p = try player.Player.init(screenWidth / 2, screenHeight / 2, 16, 16, 0.0); 
     var bullet_list = renderables.initBulletList(45); 
@@ -42,8 +42,14 @@ pub fn main() !void {
     defer hitbox_list.deinit(); 
     var tower_list = try towers.createTowerList(allocator); 
     defer tower_list.deinit(); 
+    var tower_shooting_list = try towers.createTowersShootingList(allocator); 
+    defer tower_shooting_list.deinit(); 
     var tower_map = try towers.createTowerMap(allocator); 
     defer tower_map.deinit(); 
+    var tower_bullet_list = try towers.createTowerBulletList(allocator); 
+    defer tower_bullet_list.deinit(); 
+    var enemy_collision_list = try towers.createEnemyCollisionList(allocator); 
+    defer enemy_collision_list.deinit(); 
     try towers.setTowerMap(); 
     //var tiles = world.Tile.loadTexture("src/world/grass.png"); 
     var tile_placement_map = try tiles.createTilePlacementHashMap(allocator); 
@@ -90,6 +96,7 @@ pub fn main() !void {
         camera.followPlayer(&cam, &p); 
         camera.zoomCamera(&cam); 
 
+
         
         //bullet logic
         renderables.Bullet.shoot(&p, &bullet_list, &cam);
@@ -106,14 +113,25 @@ pub fn main() !void {
         //enemy updates
         enemies.BasicEnemy.drawEnemy();  
         enemies.BasicEnemy.moveEnemy(
-            raylib.Vector2{.x = interactables.portal.sprite.rect.x, 
-                 .y = interactables.portal.sprite.rect.y
-                }
-            ); 
+            raylib.Vector2{
+                .x = interactables.portal.sprite.rect.x + @as(f32, @floatFromInt(interactables.portal.sprite.texture.width)),
+                .y = interactables.portal.sprite.rect.y + @as(f32, @floatFromInt(interactables.portal.sprite.texture.height))
+            }); 
         enemies.enemySpawnTimer(); 
         enemies.BasicEnemy.checkEnemyCollision(&p); 
 
+        //TOWERS
+        towers.drawTowerRangeCircle(); 
+        try towers.checkEnemyEnterTowerRange(&enemy_list); 
+        try towers.towerShoot(); 
+        towers.cleanUpTowerShootingList(); 
+        towers.drawBullets(); 
+        towers.moveBullets(delta_time); 
+        towers.checkEnemyCollisionWithBullet(&enemy_list); 
+        towers.cleanUpBullets(); 
+
         raylib.EndMode2D();  
+        raylib.DrawFPS(25, 25); 
         raylib.EndDrawing();
         //----------------------------------------------------------------------------------
     }

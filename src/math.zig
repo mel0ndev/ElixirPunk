@@ -22,15 +22,15 @@ pub fn direction(current: Vec2, target: Vec2) Vec2 {
     return dir; 
 }
 
-pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
+pub fn moveTowards(current: Vec2, target: Vec2, speed: f32) Vec2 {
     var x: f32 = current.x; 
     var y: f32 = current.y; 
 
     //enemy is to the left and above target 
     if (x < target.x and y < target.y) {
         while (x <= target.x and y <= target.y) {
-            x += 1; 
-            y += 1; 
+            x += 1 * speed; 
+            y += 1 * speed; 
             return Vec2{
                 .x = x,
                 .y = y
@@ -38,8 +38,8 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         }
     } else if (x < target.x and y > target.y) {
         while (x <= target.x and y >= target.y) {
-            x += 1; 
-            y -= 1;  
+            x += 1 * speed; 
+            y -= 1 * speed;  
             return Vec2{
                 .x = x,
                 .y = y
@@ -47,8 +47,8 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         }
     } else if (x > target.x and y > target.y) {
         while (x >= target.x and y >= target.y) {
-            x -= 1; 
-            y -= 1;    
+            x -= 1 * speed; 
+            y -= 1 * speed;    
             return Vec2 {
                 .x = x,
                 .y = y
@@ -56,8 +56,8 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         }
     } else if (x > target.x and y < target.y) {
         while (x >= target.x and y <= target.y) {
-            x -= 1;
-            y += 1; 
+            x -= 1 * speed;
+            y += 1 * speed; 
             return Vec2{
                 .x = x,
                 .y = y
@@ -65,7 +65,7 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         }
      } else if (x > target.x and y == target.y) {
         while (x >= target.x) {
-            x -= 1; 
+            x -= 1 * speed; 
             return Vec2{
                 .x = x,
                 .y = y
@@ -73,7 +73,7 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         }
      } else if (x < target.x and y == target.y) {
         while (x <= target.x) {
-            x += 1; 
+            x += 1 * speed; 
             return Vec2{
                 .x = x,
                 .y = y
@@ -81,7 +81,7 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         } 
      } else if (y < target.y and x == target.x) {
         while (y <= target.y) {
-            y += 1; 
+            y += 1 * speed; 
             return Vec2{
                 .x = x, 
                 .y = y
@@ -89,7 +89,7 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
         }
      }  else if ( y > target.y and x == target.x) {
         while (y >= target.y) {
-            y -= 1;
+            y -= 1 * speed;
             return Vec2{
                 .x = x,
                 .y = y
@@ -102,6 +102,16 @@ pub fn moveTowards(current: Vec2, target: Vec2) Vec2 {
 
 pub fn easeInCubic(x: f32) f32 {
     return x * x * x; 
+}
+
+pub fn track(current_pos: Vec2, target_pos: Vec2) Vec2 {
+        var dx = target_pos.x - current_pos.x; 
+        var dy = target_pos.y - current_pos.y; 
+        const length: f32 = @sqrt(dx * dx + dy * dy);    
+        dx /= length; 
+        dy /= length; 
+
+        return Vec2{.x = dx, .y = dy}; 
 }
 
 

@@ -47,9 +47,9 @@ pub const BasicEnemy = struct {
     }
 
     pub fn drawEnemy() void {
-        for (enemy_list.items(.rect), enemy_list.items(.alive)) |*rect, *alive| {
-            if (alive.* == true) {
-                raylib.DrawRectangleRec(rect.*, raylib.BLUE); 
+        for (enemy_list.items(.rect), enemy_list.items(.alive)) |rect, alive| {
+            if (alive == true) {
+                raylib.DrawRectangleRec(rect, raylib.BLUE); 
             }
         }
     }
@@ -74,9 +74,9 @@ pub const BasicEnemy = struct {
                     .x = rect.*.x,
                     .y = rect.*.y
                 }; 
-                var move_vec = math.moveTowards(current_pos, portal_pos); 
-                rect.*.x = move_vec.x;
-                rect.*.y = move_vec.y; 
+                var move_vec = math.track(current_pos, portal_pos); 
+                rect.*.x += move_vec.x * 2.0;
+                rect.*.y += move_vec.y * 2.0; 
             } else {
                 rect.*.x = -100000.0; 
                 rect.*.y = -10000.0;
@@ -103,4 +103,3 @@ pub fn enemySpawnTimer() void {
         }
         spawn_timer = 5.0; 
     }        
-}
