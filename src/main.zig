@@ -12,14 +12,19 @@ const world = @import("world/world.zig");
 const tiles = @import("world/tiles.zig"); 
 const foliage = @import("world/foliage.zig"); 
 const renderables = @import("./renderables.zig"); 
+const ui = @import("./ui/ui.zig"); 
 
 const target_frame_time: f32 = 0.016667; 
 
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator); 
-    defer arena.deinit(); 
-    const allocator = arena.allocator(); 
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        const deinit_status = gpa.deinit();
+        //fail test; can't try in defer as defer is executed after we return
+        if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
+    }
+    const allocator = gpa.allocator();
 
     // Initialization
     //-----------------------------------------------------------------------------------
@@ -32,6 +37,11 @@ pub fn main() !void {
     //-----------------------------------------------------------------------------------
     
     //init enemies array list
+    var ui_list = try ui.createUiElementList(allocator); 
+    defer ui_list.deinit(); 
+    var ui_map = try ui.createUiElementMap(allocator); 
+    defer ui_map.deinit(); 
+    try ui.setUiElements(screenWidth, screenHeight);
     var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 10); 
     defer enemy_list.deinit(allocator); 
     var p = try player.Player.init(screenWidth / 2, screenHeight / 2, 16, 16, 0.0); 
@@ -131,7 +141,11 @@ pub fn main() !void {
         towers.cleanUpBullets(); 
 
         raylib.EndMode2D();  
+        
+        //draw UI
         raylib.DrawFPS(25, 25); 
+        ui.drawUiElements(); 
+
         raylib.EndDrawing();
         //----------------------------------------------------------------------------------
     }

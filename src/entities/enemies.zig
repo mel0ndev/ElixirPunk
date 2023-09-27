@@ -103,3 +103,4 @@ pub fn enemySpawnTimer() void {
         }
         spawn_timer = 5.0; 
     }        
+}
