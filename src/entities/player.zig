@@ -2,34 +2,57 @@ const std = @import("std");
 const raylib = @cImport({
     @cInclude("raylib.h");
 });
-const renderables = @import("../renderables.zig"); 
-const entities = @import("./entities.zig"); 
-const towers = @import("./towers.zig"); 
-const math = @import("../math.zig"); 
+const entities = @import("./entities/entities.zig"); 
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
-const Camera2D = raylib.Camera2D; 
 
+//store this somewhere on the heap?
+var player_texture: Texture2D = undefined;  
+var player: Player = undefined; 
+
+pub fn initPlayer() !void {
+    player_texture: Texture2D = raylib.LoadTexture("src/world/assets/mc.png");
+    var player = Player.init(
+        @as(f32, @floatFromInt(raylib.GetScreenWidth() / 2), 
+        @as(f32, @floatFromInt(raylib.GetScreenHeight() / 2), 
+        16, 
+        16, 
+        0.0
+    ); 
+    player.addToSpriteList();  
+}
+
+//update all player logic
+pub fn update(player: *Player, delta_time: f32) void {
+    player.movePlayer(delta_time); 
+    player.updateLists(); 
+    player.checkForHitboxCollisions(); 
+}
+
+pub fn deinitPlayer() !void {
+    raylib.UnloadTexture(player_texture);  
+}
 
 pub const Player = struct {
 
     sprite: entities.Sprite, 
     colliders: [4]Rect,
-    rot: f32,
+    rotation: f32,
     speed: Vec2,
     direction: Vec2,
-    alive: bool,
+    alive: bool = true,
 
 
-    pub fn init(x: f32, y: f32, w: f32, h: f32, rotation: f32) !Player {
-        const texture = raylib.LoadTexture("src/world/assets/tiles/mc.png"); 
+    pub fn init(x: f32, y: f32, width: f32, height: f32, rotation: f32) Player {
         var player = Player {
             .sprite = entities.Sprite{
                 .texture = texture,
                 .rect = Rect {
                     .x = x, 
                     .y = y,
-                    .width = w, .height = h, },
+                    .width = width, 
+                    .height = height, 
+                },
                 .origin = Vec2{ 
                     .x = undefined,
                     .y = undefined,
@@ -37,10 +60,9 @@ pub const Player = struct {
                 .scale = 1.0,
             },
             .colliders = undefined,
-            .rot = rotation,
+            .rotation = rotation,
             .speed = Vec2{.x = 3, .y = 3}, 
             .direction = Vec2{.x = 0, .y = 0}, 
-            .alive = true,
         }; 
         
         return player; 
@@ -83,22 +105,22 @@ pub const Player = struct {
         
     }
 
-    pub fn spawnTower(camera: *Camera2D) !void {
-        if (raylib.IsKeyPressed(raylib.KEY_Q)) { 
-            try towers.generateTowerData(towers.TowerType.BASIC, camera); 
-        }
-    }
+//    pub fn spawnTower(camera: *Camera2D) !void {
+//        if (raylib.IsKeyPressed(raylib.KEY_Q)) { 
+//            try towers.generateTowerData(towers.TowerType.BASIC, camera); 
+//        }
+//    }
 
-    pub fn rotatePlayer(self: *Player, camera: *Camera2D) f32 {
-        const mouse_vec: Vec2 = raylib.GetMousePosition(); 
-        const world_pos: Vec2 = raylib.GetScreenToWorld2D(mouse_vec, camera.*); 
-        const radians: f32 = std.math.atan2(f32, world_pos.y - self.sprite.rect.y, world_pos.x - self.sprite.rect.x);  
-        //this is what I was missing -> gotta be in degrees not radians
-        const angle: f32 = std.math.radiansToDegrees(f32, radians); 
-        
-        self.rot = angle; 
-        return angle; 
-    }
+    //pub fn rotatePlater(self: *Player, camera: *Camera2D) f32 {
+    //    const mouse_vec: Vec2 = raylib.GetMousePosition(); 
+    //    const world_pos: Vec2 = raylib.GetScreenToWorld2D(mouse_vec, camera.*); 
+    //    const radians: f32 = std.math.atan2(f32, world_pos.y - self.sprite.rect.y, world_pos.x - self.sprite.rect.x);  
+    //    //this is what I was missing -> gotta be in degrees not radians
+    //    const angle: f32 = std.math.radiansToDegrees(f32, radians); 
+    //    
+    //    self.rotation = angle; 
+    //    return angle; 
+    //}
 
 
     pub fn getPlayerPos(self: *Player) Vec2 {
@@ -111,6 +133,7 @@ pub const Player = struct {
     pub fn getPlayerRect(self: *Player) Rect {
         return self.sprite.rect; 
     }
+
 
     pub fn updateLists(self: *Player) void {
         self.sprite.origin = Vec2{
@@ -150,6 +173,36 @@ pub const Player = struct {
             
         };
     }
+
+    pub fn checkForHitboxCollisions(self: *Player) void {
+    for (entities.collider_list.items) |collider| {
+        for (self.colliders, 0..) |player_collider, i| {
+            const overlap: bool = raylib.CheckCollisionRecs(player_collider, collider);
+            if (overlap == true) {
+                switch (i) {
+                    0 => {
+                        self.sprite.rect.y = collider.y + collider.height - 10.0;
+                    },
+                    1 => {
+                        self.sprite.rect.x =
+                            collider.x - @as(f32, @floatFromInt(
+                            self.sprite.texture.width));
+                    },
+                    2 => {
+                        self.sprite.rect.y =
+                            collider.y - @as(f32, @floatFromInt(
+                                 self.sprite.texture.height));
+                    },
+                    3 => {
+                        self.sprite.rect.x =
+                            collider.x + collider.width;
+                    },
+                    else => break,
+                }
+            }
+        }
+    }
+}
 
     pub fn addToSpriteList(self: *Player) !void {
         try entities.entities_list.append(self.sprite); 
