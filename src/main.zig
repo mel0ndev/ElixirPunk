@@ -2,10 +2,10 @@ const std = @import("std");
 const raylib = @cImport({
     @cInclude("raylib.h");
 });
-//const player = @import("entities/player.zig"); 
-//const camera = @import("entities/camera.zig"); 
+const player = @import("entities/player.zig"); 
+const camera = @import("entities/camera.zig"); 
 //const enemies = @import("entities/enemies.zig"); 
-//const entities = @import("entities/entities.zig"); 
+const sprites = @import("entities/sprites.zig"); 
 //const towers = @import("entities/towers/towers.zig"); 
 //const towerbullets = @import("entities/towers/tower_bullets.zig"); 
 //const interactables = @import("entities/interactables/interactables.zig"); 
@@ -46,15 +46,16 @@ pub fn main() !void {
     //[x]
     //try ui.initUiElements(allocator); 
     //defer ui.deinitUiElements(); 
+    
+    ////[x] 
+    try sprites.initSprites(allocator); 
 
     ////[x]
-    //try initPlayer(); //can have this return a player pointer if we need 
-    //defer deinitPlayer(); 
+    try player.initPlayer(screen_width, screen_height); //can have this return a player pointer if we need 
     ////we have to refactor enemies completely, so leave until last
     ////[ ]
     //var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 10); 
     //defer enemy_list.deinit(allocator); 
-    
    
     //TODO 
     //rework and refactor
@@ -62,9 +63,6 @@ pub fn main() !void {
     //try bullets.initBullets(); 
     //defer deinitBullets(); 
 
-    ////[x] 
-    //try sprites.initSprites(allocator); 
-    //defer sprites.deinitSprites(); 
     //
     ////[x]
     //try towers.initTowers(alloc);
@@ -76,8 +74,7 @@ pub fn main() !void {
     //suspected memory leaker
     try world.initMap(allocator); 
     //defer world.deinitMap(); 
-
-    //var cam = camera.init(&p.sprite.rect, p.sprite.rect.x, p.sprite.rect.y); 
+    var cam = camera.init(&player.player.sprite.rect, player.player.sprite.rect.x, player.player.sprite.rect.y); 
     //_ = try world.createTileHapMap(allocator); 
     //try world.Tile.setTileMap(16); 
     //try world.Tile.pickTiles(); 
@@ -87,7 +84,6 @@ pub fn main() !void {
                                           
         //----------------------------------------------------------------------------------
         var delta_time = raylib.GetFrameTime() / target_frame_time; 
-        _ = delta_time; 
         //enemies.spawn_timer -= 0.09; 
         // Draw
         //----------------------------------------------------------------------------------
@@ -95,21 +91,20 @@ pub fn main() !void {
         raylib.ClearBackground(raylib.WHITE);
 
         //enter 2d camera mode
-        //raylib.BeginMode2D(cam);
+        raylib.BeginMode2D(cam);
 
-        try world.drawMap(); 
+        world.drawMap(); 
+
         
-       //player updates 
-        //_ = player.Player.rotatePlayer(&p, &cam); 
-        //player.Player.movePlayer(&p, delta_time); 
-        //try player.Player.spawnTower(&cam); 
-        ////player.Player.drawPlayer(&p);   
+        //player updates 
+        player.update(delta_time);  
+
+        //try sprites.update(allocator); 
         ////
-        //try entities.drawEntitiesInOrder(&p); 
         ////try entities.checkCollisions(&p); 
 
-        //camera.followPlayer(&cam, &p); 
-        //camera.zoomCamera(&cam); 
+        camera.followPlayer(&cam, &player.player); 
+        camera.zoomCamera(&cam); 
 
 
         //
@@ -146,15 +141,18 @@ pub fn main() !void {
         //ui.drawUiElements(); 
 
         raylib.EndDrawing();
-        //----------------------------------------------------------------------------------
+        //-------------------------------------------------------------------------------
     }
     
-    world.deinitMap(); 
 
     // De-Initialization
-    //--------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
+    player.deinitPlayer(); 
+    sprites.deinitSprites(); 
+    world.deinitMap(); 
+
     raylib.CloseWindow(); // Close window and OpenGL context
-    //--------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
 }
 
 

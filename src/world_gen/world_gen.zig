@@ -14,8 +14,7 @@ pub const GRID_X: u32 = 64;
 pub const GRID_Y: u32 = 64;
 var map: [GRID_X][GRID_Y]u8 = undefined; 
 
-var temp_map: [GRID_X][GRID_Y]u8 = undefined; 
-
+    
 
 pub fn initMap(alloc: std.mem.Allocator) !void {
     //create file basic file
@@ -31,24 +30,19 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     //  - convert to tilemap
     try convertToTiles(); 
     //save converted data to file
+    try std.json.stringify(
+        tiles.TileList{.tiles = tiles.tile_list.items}, 
+        .{.whitespace = .indent_1}, 
+        file.writer()
+    ); 
+}
+
+pub fn drawMap() void {
+    tiles.update(); 
 }
 
 pub fn deinitMap() void {
     tiles.deinitTiles(); 
-}
-
-pub fn drawMap() !void {
-    for (map, 0..) |row, x| {
-       for (0..row.len) |y| {
-            const num = map[x][y]; 
-            tiles.drawTiles(
-                @floatFromInt(x), 
-                @floatFromInt(y), 
-                num, 
-                tiles.tile_texture_map
-            ); 
-        } 
-    }
 }
 
 //TODO: refactor and optimize -- single loop that does everything
@@ -72,12 +66,10 @@ fn generateMapData(file: std.fs.File) !void {
             } else {
                 map[x][y] = 0;     
             }
-            //try file.writer().print("{}", .{map[x][y]}); 
         }
-        //try file.writer().print("\n", .{}); 
     }
 
-    for (0..20) |x| {
+    for (0..10) |x| {
         _ = x; 
         iterateMapGen(); 
     }
@@ -97,26 +89,44 @@ fn iterateMapGen() void {
     }
 }
 
-//TODO: convert map data into something that stores more data
 fn convertToTiles() !void {
     for (0..GRID_X) |x| {
         for (0..GRID_Y) |y| {
             if (map[x][y] == 1) {
-                var placement = getCellToTile(@intCast(x), @intCast(y)); 
-                const tile_id = placementToTileId(placement);  
-                temp_map[x][y] = tile_id; 
+
+                const placement = getCellToTile(@intCast(x), @intCast(y)); 
+                const tile_id = placementToTileId(placement);
+                const tile_data = tiles.TileData.init(
+                    getNeighborCount(@intCast(x), @intCast(y)),
+                    Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                );  
+                const tile = tiles.Tile.init(tile_data, 21); 
+                try tiles.tile_list.append(tile); 
+                map[x][y] = tile_id; 
+
             } else if (map[x][y] == 0) {
                 var random_num: u8 = r.random().intRangeLessThan(u8, 0, 50);
                 if (@mod(random_num, 20) == 0) {
-                    random_num = r.random().intRangeLessThan(u8, 0, 6);
+                    random_num = r.random().intRangeLessThan(u8, 0, 16);
+                    const tile_data = tiles.TileData.init(
+                        getNeighborCount(@intCast(x), @intCast(y)),
+                        Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                    );  
+                    const tile = tiles.Tile.init(tile_data, random_num); 
+                    try tiles.tile_list.append(tile); 
+                    map[x][y] = random_num; 
+                } else {
+                    const tile_data = tiles.TileData.init(
+                        getNeighborCount(@intCast(x), @intCast(y)),
+                        Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                    );  
+                    const tile = tiles.Tile.init(tile_data, 0); 
+                    try tiles.tile_list.append(tile); 
                     //try foliage.generateFoliageData(x, y); 
-                    temp_map[x][y] = random_num; 
                 }
             }
         }
     }
-
-    map = temp_map; 
 }
 
 fn placementToTileId(tile_data: tiles.TilePlacement) u8 {
@@ -173,7 +183,9 @@ fn getNeighborCount(tile_x: i16, tile_y: i16) i16 {
             if (neighbor_x >= 0 and neighbor_x < GRID_X
                 and neighbor_y >= 0 and neighbor_y < GRID_Y) {
                 if (neighbor_x != tile_x or neighbor_y != tile_y) {
-                    count += map[@intCast(neighbor_x)][@intCast(neighbor_y)];
+                    if (map[@intCast(neighbor_x)][@intCast(neighbor_y)] == 1) {
+                        count += 1;
+                    }
                 }
             }
         }

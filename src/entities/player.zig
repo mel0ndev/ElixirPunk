@@ -2,40 +2,43 @@ const std = @import("std");
 const raylib = @cImport({
     @cInclude("raylib.h");
 });
-const entities = @import("./entities/entities.zig"); 
+const sprites = @import("./sprites.zig"); 
 const Vec2 = raylib.Vector2; 
 const Rect = raylib.Rectangle; 
+const Texture2D = raylib.Texture2D; 
 
 //store this somewhere on the heap?
 var player_texture: Texture2D = undefined;  
-var player: Player = undefined; 
+pub var player: Player = undefined; 
 
-pub fn initPlayer() !void {
-    player_texture: Texture2D = raylib.LoadTexture("src/world/assets/mc.png");
-    var player = Player.init(
-        @as(f32, @floatFromInt(raylib.GetScreenWidth() / 2), 
-        @as(f32, @floatFromInt(raylib.GetScreenHeight() / 2), 
+pub fn initPlayer(screen_width: f32, screen_height: f32) !void {
+    player_texture = raylib.LoadTexture("src/assets/mc.png");
+    player = Player.init(
+        screen_width / 2, 
+        screen_height / 2,
         16, 
         16, 
         0.0
     ); 
-    player.addToSpriteList();  
+    try player.addToSpriteList();  
 }
 
 //update all player logic
-pub fn update(player: *Player, delta_time: f32) void {
+pub fn update(delta_time: f32) void {
+    //TODO: temp, should be handled by sprite renderer
+    player.drawPlayer(); 
     player.movePlayer(delta_time); 
     player.updateLists(); 
     player.checkForHitboxCollisions(); 
 }
 
-pub fn deinitPlayer() !void {
+pub fn deinitPlayer() void {
     raylib.UnloadTexture(player_texture);  
 }
 
 pub const Player = struct {
 
-    sprite: entities.Sprite, 
+    sprite: sprites.Sprite, 
     colliders: [4]Rect,
     rotation: f32,
     speed: Vec2,
@@ -44,9 +47,9 @@ pub const Player = struct {
 
 
     pub fn init(x: f32, y: f32, width: f32, height: f32, rotation: f32) Player {
-        var player = Player {
-            .sprite = entities.Sprite{
-                .texture = texture,
+        var p = Player {
+            .sprite = sprites.Sprite{
+                .texture = player_texture,
                 .rect = Rect {
                     .x = x, 
                     .y = y,
@@ -65,7 +68,15 @@ pub const Player = struct {
             .direction = Vec2{.x = 0, .y = 0}, 
         }; 
         
-        return player; 
+        return p; 
+    }
+
+    pub fn drawPlayer(self: *Player) void {
+        raylib.DrawTextureV(
+            self.sprite.texture,
+            Vec2{.x = self.sprite.rect.x, .y = self.sprite.rect.y},
+            raylib.WHITE
+        );
     }
     
     pub fn movePlayer(self: *Player, delta_time: f32) void {
@@ -175,7 +186,7 @@ pub const Player = struct {
     }
 
     pub fn checkForHitboxCollisions(self: *Player) void {
-    for (entities.collider_list.items) |collider| {
+    for (sprites.collider_list.items) |collider| {
         for (self.colliders, 0..) |player_collider, i| {
             const overlap: bool = raylib.CheckCollisionRecs(player_collider, collider);
             if (overlap == true) {
@@ -205,6 +216,6 @@ pub const Player = struct {
 }
 
     pub fn addToSpriteList(self: *Player) !void {
-        try entities.entities_list.append(self.sprite); 
+        try sprites.sprites_list.append(self.sprite); 
     } 
 };  

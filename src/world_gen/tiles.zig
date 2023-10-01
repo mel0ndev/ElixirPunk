@@ -7,31 +7,32 @@ const Vec2 = raylib.Vector2;
 
 //seed (0) rn 
 var r  = std.rand.DefaultPrng.init(0); 
-pub var tile_list: [world.GRID_X][world.GRID_Y]Tile = undefined; 
-pub var tile_texture_map: Texture2D = undefined; 
 
 const GRASS_TILE_SIZE: u8 = 16; 
 const WATER_TILE_SIZE: u8 = 9; 
 const GROUND_TILE_SIZE: u8 = 9; 
 
-var tile_set: std.AutoHashMap(u8, Vec2) = undefined;  
+pub var tile_list: std.ArrayList(Tile) = undefined; 
 pub var tile_map_placement_data: std.AutoHashMap(TilePlacement, u8) = undefined; 
+pub var tile_texture_map: Texture2D = undefined; 
+var tile_set: std.AutoHashMap(u8, Vec2) = undefined;  
 
 pub fn initTiles(alloc: std.mem.Allocator) !void {
+    _ = try createTileList(alloc); 
     _ = try createTileHashMap(alloc); 
     _ = try createTilePlacementHashMap(alloc); 
     _ = try loadTextureMap(); 
     try setTileMap(); 
 }
 
-pub fn update(delta_time: f32) void {
+pub fn update() void {
     //update tiles 
-    //drawTiles() is called from world.update() atm
-    _ = delta_time; 
-}
+    drawTiles(); 
+} 
 
 
 pub fn deinitTiles() void {
+    tile_list.deinit(); 
     tile_set.deinit(); 
     tile_map_placement_data.deinit(); 
     raylib.UnloadTexture(tile_texture_map); 
@@ -49,18 +50,52 @@ pub const TilePlacement = enum {
     BOTTOM_RIGHT,
 }; 
 
-const TileType = enum { 
+pub const TileType = enum { 
     GRASS,
+    PLANT, //flower, tall grass, etc
     DIRT,
     WATER,
     SAND,
     STONE,
+    INTERACTABLE,
 };
+
+//for deserializing
+pub const TileList = struct {
+    tiles: []Tile,
+}; 
 
 pub const Tile = struct {
 
-    tile_type: TileType,
     tile_data: TileData,
+    tile_id: u8,
+    has_interactable: bool = false, //foliage, chest spawn, portal, altar, etc
+
+    pub fn init(tile_data: TileData, tile_id: u8) Tile {
+        var tile = Tile{
+            .tile_data = tile_data,
+            .tile_id = tile_id,
+        };   
+
+        return tile; 
+    } 
+
+    ////for serializing the Tile struct
+    //pub fn serialize(
+    //    self: *Tile, 
+    //    options: std.json.StringifyOptions, 
+    //    out_stream: anytype, //should be our file.writer() 
+    //    ) !void {
+    //    
+    //    try std.json.stringify(
+    //        Tile{
+    //            .tile_data = self.tile_data, 
+    //            .tile_type = self.tile_data
+    //        }, 
+    //        options, 
+    //        out_stream
+    //    );  
+    //}
      
     pub fn loadTexture(path: [*c]const u8) Texture2D {
         const texture: Texture2D = raylib.LoadTexture(path); 
@@ -72,22 +107,24 @@ pub const Tile = struct {
     }
 }; 
 
-const TileData = struct {
+pub const TileData = struct {
     count: i16,
     pos: Vec2, 
-    placement: TilePlacement,
 
-    pub fn init(n_count: i16, position: Vec2, place: TilePlacement) TileData {
-        const td = TileData{
+    pub fn init(n_count: i16, position: Vec2) TileData {
+        var td = TileData{
             .count = n_count,
             .pos = position,
-            .placement = place
         }; 
 
         return td; 
     } 
 };
 
+fn createTileList(alloc: std.mem.Allocator) !*std.ArrayList(Tile) {
+    tile_list = std.ArrayList(Tile).init(alloc); 
+    return &tile_list; 
+}
 
 //maps the location in the tilemap file to the coordinates needed to draw
 fn createTileHashMap(alloc: std.mem.Allocator) !*std.AutoHashMap(u8, Vec2) {
@@ -100,6 +137,7 @@ fn createTilePlacementHashMap(alloc: std.mem.Allocator) !*std.AutoHashMap(TilePl
     tile_map_placement_data = std.AutoHashMap(TilePlacement, u8).init(alloc);  
     return &tile_map_placement_data; 
 }
+
 
 fn loadTextureMap() !void {
     tile_texture_map = raylib.LoadTexture("src/assets/tiles/grass.png");  
@@ -130,50 +168,59 @@ pub fn setTileMap() !void {
     }
 }
 
-//TODO: have this read from the map file and get position directly from there
-pub fn drawTiles(x: f32, y: f32, num: u8, texture: Texture2D) void {
-    const rec_pos: Vec2 = tile_set.get(num).?; 
-    const world_pos = raylib.Rectangle{
-        .x = x * 32,
-        .y = y * 32,
-        .width = 32,
-        .height = 32,
-    };
-    const tilemap_pos = raylib.Rectangle{
-        .x = rec_pos.x,
-        .y = rec_pos.y,
-        .width = 16,
-        .height = 16,
-    };
+pub fn drawTiles() void {
+    for (tile_list.items) |tile| {
+        const rec_pos: Vec2 = tile_set.get(tile.tile_id).?; 
+        const x = tile.tile_data.pos.x;
+        const y = tile.tile_data.pos.y;
 
-    raylib.DrawTexturePro(
-        texture, 
-        tilemap_pos, 
-        world_pos, 
-        Vec2{.x = 0, .y = 0}, 
-        0, //rotation
-        raylib.RAYWHITE
-    ); 
+        const world_pos = raylib.Rectangle{
+            .x = x * 32,
+            .y = y * 32,
+            .width = 32,
+            .height = 32,
+        };
+        const tilemap_pos = raylib.Rectangle{
+            .x = rec_pos.x,
+            .y = rec_pos.y,
+            .width = 16,
+            .height = 16,
+        };
 
-    //IF DEBUGGING IS NEEDED
-    //var font = raylib.GetFontDefault(); 
-    //var buf: [1024]u8 = undefined;
-    //const s = std.fmt.bufPrintZ(&buf, "{d}", .{x}) catch @panic("error");
-    //raylib.DrawTextPro(
-    //    font,
-    //    s,
-    //    Vec2{
-    //        .x = world_pos.x,
-    //        .y = world_pos.y,
-    //    },
-    //    Vec2{
-    //        .x = 0,
-    //        .y = 0,
-    //    },
-    //    0,
-    //    12,
-    //    1,
-    //    raylib.RED
-    //); 
+        raylib.DrawTexturePro(
+            tile_texture_map, 
+            tilemap_pos, 
+            world_pos, 
+            Vec2{.x = 0, .y = 0}, 
+            0, //rotation
+            raylib.RAYWHITE
+        ); 
+
+        //IF DEBUGGING IS NEEDED
+        var font = raylib.GetFontDefault(); 
+        var buf: [1024]u8 = undefined;
+        const s = std.fmt.bufPrintZ(
+            &buf, 
+            "{d}", 
+            .{tile.tile_data.count}
+        ) catch @panic("error");
+        raylib.DrawTextPro(
+            font,
+            s,
+            Vec2{
+                .x = world_pos.x + 8,
+                .y = world_pos.y + 8,
+            },
+            Vec2{
+                .x = 0,
+                .y = 0,
+            },
+            0,
+            12,
+            1,
+            raylib.RED
+        ); 
+    }
 }
+
 

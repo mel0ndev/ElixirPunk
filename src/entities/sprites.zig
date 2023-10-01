@@ -8,7 +8,7 @@ const Texture2D = raylib.Texture2D;
 
 //do we need access outside of this file? maybe pass them in via function 
 //for now we can leave these public since we need them for other files 
-pub var entities_list: std.ArrayList(Sprite) = undefined; 
+pub var sprites_list: std.ArrayList(Sprite) = undefined; 
 pub var collider_list: std.ArrayList(Rect) = undefined;  
 
 pub const Sprite = struct {
@@ -26,19 +26,19 @@ pub fn initSprites(alloc: std.mem.Allocator) !void {
 pub fn update(alloc: std.mem.Allocator) !void {
    //update logic  
    //I don't think these need to be called every update?
-    var sorted_list = try sortEntitiesForDrawOrder(); 
-    drawSpritesInOrder(alloc, sorted_list); 
-    checkForHitboxCollisions(p); 
+    var sorted_list = try sortSpritesForDrawOrder(); 
+    try drawSpritesInOrder(alloc, sorted_list); 
+    //checkForHitboxCollisions(p); 
 }
 
-pub fn deinitSprites() !void {
-    entities_list.*.deinit(); 
-    collider_list.*.deinit(); 
+pub fn deinitSprites() void {
+    sprites_list.deinit(); 
+    collider_list.deinit(); 
 }
 
 fn createEntitiesList(alloc: std.mem.Allocator) !*std.ArrayList(Sprite) {
-    entities_list = std.ArrayList(Sprite).init(alloc); 
-    return &entities_list; 
+    sprites_list = std.ArrayList(Sprite).init(alloc); 
+    return &sprites_list; 
 }
 
 fn createColliderList(alloc: std.mem.Allocator) !*std.ArrayList(Rect) {
@@ -52,17 +52,17 @@ fn sortingContext(context: void, a: Sprite, b: Sprite) bool {
     return false; 
 }
 
-fn sortSpritesForDrawOrder() !*[]Sprite {
-    var list = try entities_list.toOwnedSlice();   
+fn sortSpritesForDrawOrder() ![]Sprite {
+    var list = try sprites_list.toOwnedSlice();   
     std.mem.sort(Sprite, list, {}, sortingContext); 
 
-    return &list; 
+    return list; 
 }
 
 //TODO: see if there a way we can avoid passing in an allocator here, if not, oh well
-fn drawSpritesInOrder(alloc: std.mem.Allocator, sorted_list: *[]Sprite) !void {
+fn drawSpritesInOrder(alloc: std.mem.Allocator, sorted_list: []Sprite) !void {
      
-    for (sorted_list.*) |entity| {
+    for (sorted_list) |entity| {
         raylib.DrawTextureEx(
             entity.texture,
             Vec2{.x = entity.rect.x, .y = entity.rect.y},
@@ -95,7 +95,7 @@ fn drawSpritesInOrder(alloc: std.mem.Allocator, sorted_list: *[]Sprite) !void {
     //    ); 
     //}
     
-    //entities_list is already emptied by used toOwnedSlice();  
+    //sprites_list is already emptied by used toOwnedSlice();  
     //but we need to free the list now 
     alloc.free(sorted_list); 
     collider_list.clearAndFree(); 
