@@ -32,12 +32,28 @@ pub fn build(b: *std.Build) void {
     // step when running `zig build`).
     b.installArtifact(exe);
     exe.linkSystemLibrary("raylib"); 
-    exe.linkSystemLibrary("GL");
-    exe.linkSystemLibrary("m");
-    exe.linkSystemLibrary("pthread");
-    exe.linkSystemLibrary("dl");
-    exe.linkSystemLibrary("rt");
-    exe.linkSystemLibrary("X11");
+    exe.linkLibC(); 
+
+    exe.addIncludePath(.{ .path = "lib" });
+        
+    const cflags = [_][]const u8{
+        "-D RAYGUI_IMPLEMENTATION",
+        "-I/lib/",
+        "-lraylib",
+    };
+    exe.addCSourceFile(.{
+        .file = .{
+            .path = "lib/raygui.c",
+        },
+        .flags = &cflags,
+    });
+
+    //exe.linkSystemLibrary("GL");
+    //exe.linkSystemLibrary("m");
+    //exe.linkSystemLibrary("pthread");
+    //exe.linkSystemLibrary("dl");
+    //exe.linkSystemLibrary("rt");
+    //exe.linkSystemLibrary("X11");
 
     //exe.addModule("getty", getty_mod);
 

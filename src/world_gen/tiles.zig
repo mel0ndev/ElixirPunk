@@ -39,15 +39,15 @@ pub fn deinitTiles() void {
 }
 
 pub const TilePlacement = enum {
-    TOP_LEFT,
-    TOP,
-    TOP_RIGHT,
-    LEFT,
-    MIDDLE,
-    RIGHT,
-    BOTTOM_LEFT,
-    BOTTOM,
-    BOTTOM_RIGHT,
+    TOP_LEFT, //0
+    TOP, //1
+    TOP_RIGHT, //2
+    LEFT, //3
+    MIDDLE, //4
+    RIGHT, //5
+    BOTTOM_LEFT, //6
+    BOTTOM, //7
+    BOTTOM_RIGHT, //8
 }; 
 
 pub const TileType = enum { 
@@ -152,6 +152,7 @@ pub fn setTileMap() !void {
         }; 
 
         //grass textures
+        //0 - 15
         try tile_set.putNoClobber(@intCast(i), texture_postion); 
     } 
     
@@ -163,8 +164,11 @@ pub fn setTileMap() !void {
         }; 
 
         //water textures
-        try tile_set.putNoClobber(@intCast(i + 17), texture_postion); 
-        try tile_map_placement_data.putNoClobber(@enumFromInt(i), @intCast(i + 17)); 
+        //16 - 24
+        try tile_set.putNoClobber(@intCast(i + 16), texture_postion); 
+        try tile_map_placement_data.putNoClobber(@enumFromInt(i), @intCast(i + 16)); 
+        //var temp: TilePlacement = @enumFromInt(i); 
+        //std.debug.print("enum is: {any}, i is: {}\n", .{temp, @as(usize, @intCast(i + 16))}); 
     }
 }
 
@@ -173,6 +177,11 @@ pub fn drawTiles() void {
         const rec_pos: Vec2 = tile_set.get(tile.tile_id).?; 
         const x = tile.tile_data.pos.x;
         const y = tile.tile_data.pos.y;
+
+        //if (x == 5 and y == 3) {
+        //    std.debug.print("tile id: {}\n", .{tile.tile_id}); 
+        //    std.debug.print("rec pos: {}\n", .{rec_pos});
+        //}
 
         const world_pos = raylib.Rectangle{
             .x = x * 32,
@@ -197,29 +206,31 @@ pub fn drawTiles() void {
         ); 
 
         //IF DEBUGGING IS NEEDED
-        var font = raylib.GetFontDefault(); 
-        var buf: [1024]u8 = undefined;
-        const s = std.fmt.bufPrintZ(
-            &buf, 
-            "{d}", 
-            .{tile.tile_data.count}
-        ) catch @panic("error");
-        raylib.DrawTextPro(
-            font,
-            s,
-            Vec2{
-                .x = world_pos.x + 8,
-                .y = world_pos.y + 8,
-            },
-            Vec2{
-                .x = 0,
-                .y = 0,
-            },
-            0,
-            12,
-            1,
-            raylib.RED
-        ); 
+        if (world.DEBUG_MODE) {
+            var font = raylib.GetFontDefault(); 
+            var buf: [1024]u8 = undefined;
+            const s = std.fmt.bufPrintZ(
+                &buf, 
+                "{d}", 
+                .{tile.tile_data.count}
+            ) catch @panic("error");
+            raylib.DrawTextPro(
+                font,
+                s,
+                Vec2{
+                    .x = world_pos.x + 8,
+                    .y = world_pos.y + 8,
+                },
+                Vec2{
+                    .x = 0,
+                    .y = 0,
+                },
+                0,
+                12,
+                1,
+                raylib.RED
+            ); 
+        }
     }
 }
 

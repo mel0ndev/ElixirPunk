@@ -15,6 +15,7 @@ const tiles = @import("world_gen/tiles.zig");
 //const foliage = @import("world_gen/foliage.zig"); 
 //const bullets = @import("entities/interactables/bullets.zig"); 
 //const ui = @import("./ui/ui.zig"); 
+const debug_menu = @import("./ui/debug_menu.zig"); 
 
 const target_frame_time: f32 = 0.016667; 
 
@@ -26,6 +27,7 @@ pub fn main() !void {
         if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
     }
     const allocator = gpa.allocator();
+
 
     // Initialization
     //-----------------------------------------------------------------------------------
@@ -46,6 +48,7 @@ pub fn main() !void {
     //[x]
     //try ui.initUiElements(allocator); 
     //defer ui.deinitUiElements(); 
+    debug_menu.initDebugMenu(); 
     
     ////[x] 
     try sprites.initSprites(allocator); 
@@ -93,7 +96,7 @@ pub fn main() !void {
         //enter 2d camera mode
         raylib.BeginMode2D(cam);
 
-        world.drawMap(); 
+        world.update(); 
 
         
         //player updates 
@@ -138,6 +141,7 @@ pub fn main() !void {
         
         //draw UI
         raylib.DrawFPS(25, 25); 
+        debug_menu.update(); 
         //ui.drawUiElements(); 
 
         raylib.EndDrawing();
