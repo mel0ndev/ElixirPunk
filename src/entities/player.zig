@@ -11,6 +11,7 @@ const Texture2D = raylib.Texture2D;
 var player_texture: Texture2D = undefined;  
 pub var player: Player = undefined; 
 
+
 pub fn initPlayer(screen_width: f32, screen_height: f32) !void {
     player_texture = raylib.LoadTexture("src/assets/mc.png");
     player = Player.init(
@@ -134,16 +135,18 @@ pub const Player = struct {
     //}
 
 
-    pub fn getPlayerPos(self: *Player) Vec2 {
+    pub fn getPlayerPos() Vec2 {
         return Vec2{
-            .x = self.sprite.rect.x,
-            .y = self.sprite.rect.y
+            .x = player.sprite.rect.x,
+            .y = player.sprite.rect.y
         };
     }
 
     pub fn getPlayerRect(self: *Player) Rect {
         return self.sprite.rect; 
     }
+
+
 
 
     pub fn updateLists(self: *Player) void {
@@ -219,3 +222,48 @@ pub const Player = struct {
         try sprites.sprites_list.append(self.sprite); 
     } 
 };  
+
+pub fn getPlayerToTilePosition() Vec2 {
+    const player_position = Player.getPlayerPos(); 
+    const tile_x = @divFloor(player_position.x, 32); 
+    const tile_y = @divFloor(player_position.y, 32); 
+
+    return .{.x = tile_x, .y = tile_y}; 
+}
+
+pub fn getPlayerToChunkPosition() Vec2 {
+    const tile_pos = getPlayerToTilePosition(); 
+    const chunk_x = @divFloor(tile_pos.x, 64); 
+    const chunk_y = @divFloor(tile_pos.y, 64); 
+
+    return .{.x = chunk_x, .y = chunk_y}; 
+}
+
+
+//TODO: REMOVE DEBUG
+pub fn drawPlayerTilePosition() void {
+    const pv = getPlayerToChunkPosition(); 
+        var font = raylib.GetFontDefault(); 
+        var buf: [1024]u8 = undefined;
+        const s = std.fmt.bufPrintZ(
+            &buf, 
+            "{d}, {d}", 
+            .{pv.x, pv.y}
+        ) catch @panic("error");
+        raylib.DrawTextPro(
+            font,
+            s,
+            Vec2{
+                .x = 50,
+                .y = 50,
+            },
+            Vec2{
+                .x = 0,
+                .y = 0,
+            },
+            0,
+            10,
+            1,
+            raylib.BLACK
+    ); 
+}

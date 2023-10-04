@@ -206,7 +206,7 @@ pub fn drawTiles() void {
         ); 
 
         //IF DEBUGGING IS NEEDED
-        if (world.DEBUG_MODE) {
+        if (world.DEBUG_MODE_NEIGHBORS) {
             var font = raylib.GetFontDefault(); 
             var buf: [1024]u8 = undefined;
             const s = std.fmt.bufPrintZ(
@@ -229,6 +229,30 @@ pub fn drawTiles() void {
                 12,
                 1,
                 raylib.RED
+            ); 
+        } else if (world.DEBUG_MODE_TILE_POS) {
+            var font = raylib.GetFontDefault(); 
+            var buf: [1024]u8 = undefined;
+            const s = std.fmt.bufPrintZ(
+                &buf, 
+                "{d}, {d}", 
+                .{tile.tile_data.pos.x, tile.tile_data.pos.y}
+            ) catch @panic("error");
+            raylib.DrawTextPro(
+                font,
+                s,
+                Vec2{
+                    .x = world_pos.x + 8,
+                    .y = world_pos.y + 8,
+                },
+                Vec2{
+                    .x = 0,
+                    .y = 0,
+                },
+                0,
+                10,
+                1,
+                raylib.WHITE
             ); 
         }
     }

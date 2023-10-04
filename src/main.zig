@@ -96,7 +96,7 @@ pub fn main() !void {
         //enter 2d camera mode
         raylib.BeginMode2D(cam);
 
-        world.update(); 
+        try world.update(allocator); 
 
         
         //player updates 
@@ -106,7 +106,7 @@ pub fn main() !void {
         ////
         ////try entities.checkCollisions(&p); 
 
-        camera.followPlayer(&cam, &player.player); 
+        camera.followPlayer(&cam); 
         camera.zoomCamera(&cam); 
 
 
@@ -142,6 +142,7 @@ pub fn main() !void {
         //draw UI
         raylib.DrawFPS(25, 25); 
         debug_menu.update(); 
+        player.drawPlayerTilePosition(); 
         //ui.drawUiElements(); 
 
         raylib.EndDrawing();
