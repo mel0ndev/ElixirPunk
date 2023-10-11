@@ -32,10 +32,29 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     _ = try createChunkList(alloc); 
     //TODO:
     //check if file has already been created, if it is, load it, if not, create it
-    var file = try createChunkFile(alloc, 0, 0); 
+    var file = createChunkFile(alloc, 0, 0) catch |err| 
+        switch (err) {
+            error.PathAlreadyExists => {
+                const file = try std.fs.cwd().openFile(
+                    "src/map/chunk_x0_y0.json",
+                    .{}
+                );
+                defer file.close(); 
+                const data = try deserializeJSONMapFile(
+                    alloc,
+                    file,
+                );
+                defer alloc.free(data); 
+
+                try tiles.initTiles(alloc); 
+                try tiles.tile_list.appendSlice(data); 
+                return; 
+            },
+            else => return err,
+        };
     defer file.close(); 
     //generate map data
-    try generateChunkData(null); 
+    try generateChunkData(null, null); 
     //gen hashmap data
     try tiles.initTiles(alloc); 
     //try foliage.setFoliageMap(); 
@@ -45,11 +64,12 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
 
     //save converted data to file
     try std.json.stringify(
-        tiles.TileList{.tiles = tiles.tile_list.items}, 
+        tiles.TileList{.tilesFromSlice = tiles.tile_list.items}, 
         .{.whitespace = .indent_1}, 
         file.writer()
     ); 
 }
+
 
 pub fn update(alloc: std.mem.Allocator) !void {
     tiles.update();
@@ -85,6 +105,13 @@ const Chunk = struct {
     }
 }; 
 
+const ChunkSide = enum {
+    POS_X, 
+    NEG_X, 
+    POS_Y,
+    NEG_Y,
+}; 
+
 
 fn createChunkList(alloc: std.mem.Allocator) !*std.ArrayList(Chunk) {
     chunk_list = std.ArrayList(Chunk).init(alloc); 
@@ -100,12 +127,12 @@ fn createChunkFile(alloc: std.mem.Allocator, chunk_x: i32, chunk_y: i32) !std.fs
     ); 
     defer alloc.free(new_chunk_file_name); 
 
-    var file = try std.fs.cwd().createFile(
+    var fileOrError = std.fs.cwd().createFile(
         new_chunk_file_name,
-        .{ .read = true } //TODO add: .exclusive = true if we don't want to overwrite 
+        .{ .read = true, .exclusive = true } 
     ); 
 
-    return file; 
+    return fileOrError; 
 }
 
 //this is player position in TILES not f32
@@ -141,41 +168,105 @@ fn createNewChunk(
     //positive x
     //std.debug.print("max x is {}\n", .{max_chunk_x}); 
     //std.debug.print("min x is {}\n", .{min_chunk_x}); 
-    std.debug.print("max y is {}\n", .{max_chunk_y}); 
-    std.debug.print("min y is {}\n", .{min_chunk_y}); 
+    //std.debug.print("max y is {}\n", .{max_chunk_y}); 
+    //std.debug.print("min y is {}\n", .{min_chunk_y}); 
     if (@as(i32, @intFromFloat(player_position.x)) > max_chunk_x - CHUNK_LOAD_DISTANCE) {
         //check if current chunk data exists
         //if it does, we load it to next_chunk_list
         //if it does not, we generate it
         std.debug.print("should load next chunk +x direciton\n", .{}); 
-        var new_file = try createChunkFile(
+        var new_file = createChunkFile(
             alloc, 
             @as(i32, @intFromFloat(current_chunk.x + 1)),
             @as(i32, @intFromFloat(current_chunk.y))
-        ); 
-        
+        ) catch |err| 
+            switch (err) {
+                error.PathAlreadyExists => {
+                    std.debug.print("path already exists", .{}); 
+                    return; 
+                }, 
+                else => { 
+                    std.debug.print("creating the file", .{}); 
+                    try generateChunkData(tiles.tile_list, ChunkSide.POS_X);     
+                    return err; 
+                },
+            };
         defer new_file.close(); 
+        
+        //we now have a new file, but we still need a way to get the correct neighboring tiles
     }
         
     //negative x direction
     if (@as(i32, @intFromFloat(player_position.x)) < min_chunk_x + CHUNK_LOAD_DISTANCE) {
-        std.debug.print("should load next chunk -x direciton\n", .{}); 
+        //std.debug.print("should load next chunk -x direciton\n", .{}); 
     }
     
     //positive y direction
     if (@as(i32, @intFromFloat(player_position.y)) > max_chunk_y - CHUNK_LOAD_DISTANCE) {
-        std.debug.print("should load next chunk +y direciton\n", .{}); 
+        //std.debug.print("should load next chunk +y direciton\n", .{}); 
     }
     
     //negative y direction
     if (@as(i32, @intFromFloat(player_position.y)) < min_chunk_y + CHUNK_LOAD_DISTANCE) {
-        std.debug.print("should load next chunk -y direciton\n", .{}); 
+        //std.debug.print("should load next chunk -y direciton\n", .{}); 
     }
 } 
 
+//since we know the side, the max or min doesn't matter
+fn getSideTiles(adjacent_chunk: std.ArrayList(tiles.Tile), chunk_side: ChunkSide, max_or_min: i32) [64]tiles.Tile {
+    var side_tiles: [64]tiles.Tile = undefined; 
+    switch(chunk_side) {
+        ChunkSide.POS_X => {
+            var i: usize = 0; 
+            for (adjacent_chunk.items) |t| {
+                if (@as(i32, @intFromFloat(t.tile_data.pos.x)) == max_or_min) {
+                    side_tiles[i] = t; 
+                    i += 1; 
+                }
+            }
+        }, 
+        ChunkSide.NEG_X => {
+            var i: usize = 0; 
+            for (adjacent_chunk.items) |t| {
+                if (@as(i32, @intFromFloat(t.tile_data.pos.x)) == max_or_min) {
+                    side_tiles[i] = t; 
+                    i += 1; 
+                }
+            }
+        }, 
+        ChunkSide.POS_Y => {
+            var i: usize = 0; 
+            for (adjacent_chunk.items) |t| {
+                if (@as(i32, @intFromFloat(t.tile_data.pos.y)) == max_or_min) {
+                    side_tiles[i] = t; 
+                    i += 1; 
+                }
+            }
+        },
+        ChunkSide.NEG_Y => {
+            var i: usize = 0; 
+            for (adjacent_chunk.items) |t| {
+                if (@as(i32, @intFromFloat(t.tile_data.pos.y)) == max_or_min) {
+                    side_tiles[i] = t; 
+                    i += 1; 
+                }
+            }
+        },
+    } 
 
-fn generateChunkData(adjacent_chunk: ?std.ArrayList(tiles.Tile)) !void {
-    _ = adjacent_chunk; 
+    return tiles; 
+}
+
+
+fn generateChunkData(adjacent_chunk: ?std.ArrayList(tiles.Tile), chunk_side: ?ChunkSide) !void {
+
+    _ = chunk_side; 
+    if (adjacent_chunk) |adjacent_tiles| {
+        //std.debug.print("side is: {any}\n", .{chunk_side.?}); 
+        _ = adjacent_tiles; 
+        //std.debug.print("{any}\n", .{adjacent_tiles}); 
+    }
+
     for (0..CHUNK_SIZE) |x| {
         for (0..CHUNK_SIZE) |y| {
             //terrain algo goes here
@@ -380,5 +471,22 @@ fn assignPlacement(placement_counter: u32) tiles.TilePlacement {
     };
 
     return placement; 
+}
+
+fn deserializeJSONMapFile(alloc: std.mem.Allocator, file: std.fs.File) ![]tiles.Tile {
+    const data = try file.readToEndAlloc(alloc, 623858); 
+    defer alloc.free(data); 
+
+    const json = try std.json.parseFromSlice(
+        tiles.TileList,
+        alloc, 
+        data,
+        .{}
+    );
+    defer json.deinit(); 
+    std.debug.print("{any}", .{json}); 
+        
+    var json_copy = try alloc.dupe(tiles.Tile, json.value.tilesFromSlice); 
+    return json_copy; 
 }
 

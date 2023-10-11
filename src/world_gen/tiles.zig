@@ -62,7 +62,7 @@ pub const TileType = enum {
 
 //for deserializing
 pub const TileList = struct {
-    tiles: []Tile,
+    tilesFromSlice: []Tile,
 }; 
 
 pub const Tile = struct {
