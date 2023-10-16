@@ -20,8 +20,9 @@ const CHUNK_SIZE: u32 = 64;
 const CHUNK_LOAD_DISTANCE: u32 = 16;  //tiles away 
 var chunk: [CHUNK_SIZE][CHUNK_SIZE]u8 = undefined; 
 
-//do we need this??
+//puts all the loaded chunks on the heap
 var chunk_list: std.ArrayList(Chunk) = undefined; 
+var chunk_map: std.AutoHashMap(Vec2, Chunk) = undefined; 
 
 const WATER: u8 = 0; 
 const SOLID: u8 = 1; 
@@ -30,6 +31,7 @@ const GRASS_CHANCE: u8 = 60;
 pub fn initMap(alloc: std.mem.Allocator) !void {
     //create file basic file
     _ = try createChunkList(alloc); 
+		_ = try createChunkMap(alloc); 
     //TODO:
     //check if file has already been created, if it is, load it, if not, create it
     var file = createChunkFile(alloc, 0, 0) catch |err| 
@@ -60,7 +62,8 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     //try foliage.setFoliageMap(); 
     //try interactables.initInteractables(); 
     //  - convert to tilemap
-    try convertToTiles(); 
+    const new_chunk = try convertToTiles(alloc, 0, 0, null, null); 
+		try chunk_list.append(new_chunk); 
 
     //save converted data to file
     try std.json.stringify(
@@ -68,6 +71,7 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
         .{.whitespace = .indent_1}, 
         file.writer()
     ); 
+		
 }
 
 
@@ -80,21 +84,31 @@ pub fn update(alloc: std.mem.Allocator) !void {
 
 pub fn deinitMap() void {
     tiles.deinitTiles(); 
-    //chunk_list.deinit(); 
+    chunk_list.deinit(); 
+		chunk_map.deinit(); 
 }
+
+const MaxTiles = struct {
+	max_x: i32,
+	min_x: i32,
+	max_y: i32,
+	min_y: i32,
+}; 
 
 const Chunk = struct {
     position: Vec2, 
     tile_list: std.ArrayList(tiles.Tile),
+		max_tiles: MaxTiles,
 
     pub fn init(
         alloc: std.mem.Allocator,
         position: Vec2,
-        tile_list: std.ArrayList(tiles.Tile)
+				max_tiles: MaxTiles,
     ) !Chunk {
         var c = Chunk{
             .position = position,
-            .tile_list = tile_list.init(alloc),
+            .tile_list = std.ArrayList(tiles.Tile).init(alloc),
+						.max_tiles = max_tiles,
         };  
 
         return c; 
@@ -116,6 +130,11 @@ const ChunkSide = enum {
 fn createChunkList(alloc: std.mem.Allocator) !*std.ArrayList(Chunk) {
     chunk_list = std.ArrayList(Chunk).init(alloc); 
     return &chunk_list;  
+}
+
+fn createChunkMap(alloc: std.mem.Allocator) !*std.AutoHashMap(Vec2, Chunk) {
+	chunk_map = std.AutoHashMap(Vec2, Chunk).init(alloc); 
+	return &chunk_map; 
 }
 
 
@@ -141,111 +160,83 @@ fn createNewChunk(
         player_position: Vec2,
         current_chunk: Vec2,
     ) !void {
-    //get the current player postion, find out if they are n number of tiles
-    //away from the chunk border
-    //if they are n > chunk_load_distance, we check if chunk data exists for the chunk
-    //if it does not, we generate the chunk data
-    //we use the border tiles to generate the borders, and then go from there
-    //the generation will match the borders, but the rest will be randomly generated
-    //using the algo we already have
-    //
-    //we need a way to get the correct border tiles based on the direction
-    //to do that, we can get the current position of the player and check their x and y values
-    //if x is close to border, we load the x chunk
-    //if y is close to border, we also load the y chunk
-    //
-    //
-    //how do we get the chunk the player is in?
-    //get the player position, check if it is bounds of the chunk?
-    const max_chunk_x: i32 = 
-        @as(i32, CHUNK_SIZE) * @as(i32, @intFromFloat(current_chunk.x + 1)); 
-    const max_chunk_y: i32 = 
-        @as(i32, CHUNK_SIZE) * @as(i32, @intFromFloat(current_chunk.y + 1)); 
-    const min_chunk_x: i32 = @as(i32, @intCast(max_chunk_x - CHUNK_SIZE));  
-    const min_chunk_y: i32 = @as(i32, @intCast(max_chunk_y - CHUNK_SIZE)); 
 
+		const chunk_maxes = getMaxAndMinForChunk(current_chunk); 
     
-    //positive x
-    //std.debug.print("max x is {}\n", .{max_chunk_x}); 
-    //std.debug.print("min x is {}\n", .{min_chunk_x}); 
-    //std.debug.print("max y is {}\n", .{max_chunk_y}); 
-    //std.debug.print("min y is {}\n", .{min_chunk_y}); 
-    if (@as(i32, @intFromFloat(player_position.x)) > max_chunk_x - CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.x)) > chunk_maxes.max_x - CHUNK_LOAD_DISTANCE) {
         //check if current chunk data exists
         //if it does, we load it to next_chunk_list
         //if it does not, we generate it
-        std.debug.print("should load next chunk +x direciton\n", .{}); 
+        //std.debug.print("should load next chunk +x direciton\n", .{}); 
         var new_file = createChunkFile(
             alloc, 
             @as(i32, @intFromFloat(current_chunk.x + 1)),
             @as(i32, @intFromFloat(current_chunk.y))
-        ) catch |err| 
-            switch (err) {
+        ) catch |e| 
+            switch (e) {
                 error.PathAlreadyExists => {
-                    std.debug.print("path already exists", .{}); 
                     return; 
                 }, 
                 else => { 
-                    std.debug.print("creating the file", .{}); 
-                    try generateChunkData(tiles.tile_list, ChunkSide.POS_X);     
-                    return err; 
+                    return e; 
                 },
             };
         defer new_file.close(); 
         
-        //we now have a new file, but we still need a way to get the correct neighboring tiles
+			//the side tiles here are for the players current position, which on generation, is the chunk the player is currently in
+			const player_chunk_position: Vec2 = player.getPlayerToChunkPosition(); 
+			const adjacent_chunk_tiles = getSideTiles(player_chunk_position, ChunkSide.POS_X, chunk_maxes.max_x - 1); 
+      try generateChunkData(adjacent_chunk_tiles, ChunkSide.POS_X);     
+			try convertToTiles(alloc, (1 * 64), 0, adjacent_chunk_tiles, ChunkSide.POS_X); 
+
+			//save converted data to file
+    	try std.json.stringify(
+    	    tiles.TileList{.tilesFromSlice = tiles.tile_list.items}, 
+    	    .{.whitespace = .indent_1}, 
+    	    new_file.writer()
+    	); 
+			
+			//this may be easier to do if new tile lists are separated into chunks instead of tiles
+			//TODO: break out max_chunk calculation into a new function
+			const next_chunk = Vec2{.x = player_chunk_position.x + 1.0, .y = player_chunk_position.y}; 
+			const new_tile_border = getSideTiles(next_chunk, ChunkSide.NEG_X, chunk_maxes.max_x);  
+			_ = new_tile_border; 
+			//try recountAndRedrawChunkEdges(adjacent_chunk_tiles, 
     }
         
     //negative x direction
-    if (@as(i32, @intFromFloat(player_position.x)) < min_chunk_x + CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.x)) < chunk_maxes.min_x + CHUNK_LOAD_DISTANCE) {
         //std.debug.print("should load next chunk -x direciton\n", .{}); 
     }
     
     //positive y direction
-    if (@as(i32, @intFromFloat(player_position.y)) > max_chunk_y - CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.y)) > chunk_maxes.max_y - CHUNK_LOAD_DISTANCE) {
         //std.debug.print("should load next chunk +y direciton\n", .{}); 
     }
     
     //negative y direction
-    if (@as(i32, @intFromFloat(player_position.y)) < min_chunk_y + CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.y)) < chunk_maxes.min_y + CHUNK_LOAD_DISTANCE) {
         //std.debug.print("should load next chunk -y direciton\n", .{}); 
     }
 } 
 
-//since we know the side, the max or min doesn't matter
-fn getSideTiles(adjacent_chunk: std.ArrayList(tiles.Tile), chunk_side: ChunkSide, max_or_min: i32) [64]tiles.Tile {
+//gets the tiles of the side we're generating a new chunk for 
+fn getSideTiles(adjacent_chunk: Chunk, chunk_side: ChunkSide, max_or_min: i32) [64]tiles.Tile {
     var side_tiles: [64]tiles.Tile = undefined; 
     switch(chunk_side) {
-        ChunkSide.POS_X => {
+        ChunkSide.POS_X, ChunkSide.NEG_X => {
             var i: usize = 0; 
-            for (adjacent_chunk.items) |t| {
+            for (adjacent_chunk.tile_list.items) |t| {
+								//check all positions: x == 63
                 if (@as(i32, @intFromFloat(t.tile_data.pos.x)) == max_or_min) {
                     side_tiles[i] = t; 
                     i += 1; 
                 }
             }
         }, 
-        ChunkSide.NEG_X => {
+        ChunkSide.POS_Y, ChunkSide.NEG_Y => {
             var i: usize = 0; 
-            for (adjacent_chunk.items) |t| {
-                if (@as(i32, @intFromFloat(t.tile_data.pos.x)) == max_or_min) {
-                    side_tiles[i] = t; 
-                    i += 1; 
-                }
-            }
-        }, 
-        ChunkSide.POS_Y => {
-            var i: usize = 0; 
-            for (adjacent_chunk.items) |t| {
-                if (@as(i32, @intFromFloat(t.tile_data.pos.y)) == max_or_min) {
-                    side_tiles[i] = t; 
-                    i += 1; 
-                }
-            }
-        },
-        ChunkSide.NEG_Y => {
-            var i: usize = 0; 
-            for (adjacent_chunk.items) |t| {
+            for (adjacent_chunk.tile_list.items) |t| {
                 if (@as(i32, @intFromFloat(t.tile_data.pos.y)) == max_or_min) {
                     side_tiles[i] = t; 
                     i += 1; 
@@ -254,42 +245,72 @@ fn getSideTiles(adjacent_chunk: std.ArrayList(tiles.Tile), chunk_side: ChunkSide
         },
     } 
 
-    return tiles; 
+    return side_tiles; 
+}
+
+fn getMaxAndMinForChunk(current_chunk: Vec2) MaxTiles {
+    const max_chunk_x: i32 = 
+        @as(i32, CHUNK_SIZE) * @as(i32, @intFromFloat(current_chunk.x + 1)); 
+    const max_chunk_y: i32 = 
+        @as(i32, CHUNK_SIZE) * @as(i32, @intFromFloat(current_chunk.y + 1)); 
+    const min_chunk_x: i32 = @as(i32, @intCast(max_chunk_x - CHUNK_SIZE));  
+    const min_chunk_y: i32 = @as(i32, @intCast(max_chunk_y - CHUNK_SIZE)); 
+
+		return MaxTiles{
+			.max_x = max_chunk_x,
+			.min_x = min_chunk_x,
+			.max_y = max_chunk_y,
+			.min_y = min_chunk_y,
+		}; 
 }
 
 
-fn generateChunkData(adjacent_chunk: ?std.ArrayList(tiles.Tile), chunk_side: ?ChunkSide) !void {
-
-    _ = chunk_side; 
-    if (adjacent_chunk) |adjacent_tiles| {
-        //std.debug.print("side is: {any}\n", .{chunk_side.?}); 
-        _ = adjacent_tiles; 
-        //std.debug.print("{any}\n", .{adjacent_tiles}); 
-    }
-
-    for (0..CHUNK_SIZE) |x| {
+fn generateChunkData(adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?ChunkSide) !void {
+		
+		//TODO: add other directions
+		for (0..CHUNK_SIZE) |x| {
         for (0..CHUNK_SIZE) |y| {
-            //terrain algo goes here
             var random_num: u8 = r.random().intRangeLessThan(u8, 0, 100);
-            if (random_num > GRASS_CHANCE) {
-                chunk[x][y] = SOLID;
-            } else {
-                chunk[x][y] = WATER;     
-            }
-        }
+						//first check if we have adjacent tiles or not
+						if (adjacent_chunk_tiles) |chunk_tiles| {
+							//if we do, check the side
+							if (chunk_side.? == ChunkSide.POS_X) {
+								if (x == 0) {
+									std.debug.print("{}\n", .{chunk_tiles[y].tile_id}); 
+										if (chunk_tiles[y].tile_id < 16) {
+											chunk[x][y] = SOLID; 
+										} else {
+										chunk[x][y] = WATER; 
+										}
+								} 
+								if (x != 0) {
+									chunk[x][y] = if (random_num < GRASS_CHANCE) SOLID else WATER; 	
+								}
+
+							}
+
+						}
+				}
     }
-    
+
     var n: usize = 0; 
     while (n < 6) : (n += 1) {
-        iterateChunkGen(); 
+        iterateChunkGen(adjacent_chunk_tiles, chunk_side); 
     }
+
 
 }
 
-fn iterateChunkGen() void {
+//TODO: check neighbors on chunk borders
+fn iterateChunkGen(maybe_adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?ChunkSide) void {
     for (0..CHUNK_SIZE) |x| {
         for (0..CHUNK_SIZE) |y| {
-            var neighbor_data: i16 = getNeighborCount(@intCast(x), @intCast(y)); 
+            var neighbor_data: i16 = getNeighborCount(
+								@intCast(x), 
+								@intCast(y),
+								maybe_adjacent_chunk_tiles,
+								chunk_side
+							); 
             if (neighbor_data > 3) {
                 chunk[x][y] = SOLID; 
             } else {
@@ -299,12 +320,22 @@ fn iterateChunkGen() void {
     }
 }
 
-fn convertToTiles() !void {
+fn convertToTiles(
+	alloc: std.mem.Allocator,
+	chunk_x: usize,
+	chunk_y: usize,
+	maybe_adjacent_chunk_tiles: ?[64]tiles.Tile,
+	chunk_side: ?ChunkSide
+	) !Chunk {
     for (0..CHUNK_SIZE) |x| {
         for (0..CHUNK_SIZE) |y| {
             if (chunk[x][y] == WATER) {
-
-                const neighbor_count = getNeighborCount(@intCast(x), @intCast(y)); 
+                const neighbor_count = getNeighborCount(
+										@intCast(x),
+										@intCast(y),
+										maybe_adjacent_chunk_tiles,
+										chunk_side
+									); 
                 const placement = getCellToTile(
                     @intCast(x), 
                     @intCast(y) 
@@ -312,7 +343,7 @@ fn convertToTiles() !void {
                 const tile_id = placementToTileId(placement);
                 const tile_data = tiles.TileData.init(
                     neighbor_count,
-                    Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                    Vec2{.x = @floatFromInt(x + chunk_x), .y = @floatFromInt(y + chunk_y)}
                 );  
                 const tile = tiles.Tile.init(tile_data, tile_id); 
                 try tiles.tile_list.append(tile); 
@@ -325,8 +356,8 @@ fn convertToTiles() !void {
 
                     random_num = r.random().intRangeLessThan(u8, 1, 16);
                     const tile_data = tiles.TileData.init(
-                        getNeighborCount(@intCast(x), @intCast(y)),
-                        Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                        getNeighborCount(@intCast(x), @intCast(y), maybe_adjacent_chunk_tiles, chunk_side),
+                        Vec2{.x = @floatFromInt(x + chunk_x), .y = @floatFromInt(y + chunk_y)}
                     );  
                     const tile = tiles.Tile.init(tile_data, random_num); 
                     try tiles.tile_list.append(tile); 
@@ -334,8 +365,8 @@ fn convertToTiles() !void {
                 } else {
 
                     const tile_data = tiles.TileData.init(
-                        getNeighborCount(@intCast(x), @intCast(y)),
-                        Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                        getNeighborCount(@intCast(x), @intCast(y), maybe_adjacent_chunk_tiles, chunk_side),
+                        Vec2{.x = @floatFromInt(x + chunk_x), .y = @floatFromInt(y + chunk_y)}
                     );  
                     const tile = tiles.Tile.init(tile_data, 0); 
                     try tiles.tile_list.append(tile); 
@@ -343,6 +374,11 @@ fn convertToTiles() !void {
             }
         }
     }
+		
+		//FIXME: this will cause a leak eventually, we have to free the old list and then create a new one
+		//TODO: get the chunk maxes for here
+		const new_chunk = Chunk.init(alloc, player.getPlayerToChunkPosition(), ); 
+		return new_chunk; 
 }
 
 fn placementToTileId(tile_data: tiles.TilePlacement) u8 {
@@ -407,26 +443,70 @@ fn getPlacementNumber(n: u32) u32 {
     return num; 
 }
 
-fn getNeighborCount(tile_x: i16, tile_y: i16) i16 {
+fn getNeighborCount(
+	tile_x: i16, 
+	tile_y: i16,
+	maybe_adjacent_chunk_tiles: ?[64]tiles.Tile,
+	chunk_side: ?ChunkSide
+	) i16 {
+		
     var count: i16 = 0;
     var neighbor_x: i16 = undefined; 
     var neighbor_y: i16 = undefined; 
-    
-    neighbor_x = tile_x - 1; 
-    while (neighbor_x <= tile_x + 1) : (neighbor_x += 1) {
-        neighbor_y = tile_y - 1;
-        while(neighbor_y <= tile_y + 1) : (neighbor_y += 1) {
-            if (neighbor_x >= 0 and neighbor_x < CHUNK_SIZE
-                and neighbor_y >= 0 and neighbor_y < CHUNK_SIZE) {
-                if (neighbor_x != tile_x or neighbor_y != tile_y) {
-                    if (chunk[@intCast(neighbor_x)][@intCast(neighbor_y)] == 1) {
-                        count += 1;
-                    }
-                }
-            }
-        }
-    }
-    return count; 
+
+		var side_tiles = maybe_adjacent_chunk_tiles orelse maybe_adjacent_chunk_tiles.?; 
+		var side = chunk_side orelse chunk_side.?; 
+		switch (side) {
+			//this is working, but the other edge now needs to update as well, and the tiles need to be redrawn
+			ChunkSide.POS_X => {
+				neighbor_x = tile_x - 1; 
+    		while (neighbor_x <= tile_x + 1) : (neighbor_x += 1) {
+    		    neighbor_y = tile_y - 1;
+    		    while(neighbor_y <= tile_y + 1) : (neighbor_y += 1) {
+							if (neighbor_x < 0 and neighbor_y < CHUNK_SIZE and neighbor_y >= 0) {
+								const tile_id = side_tiles[@intCast(neighbor_y)].tile_id; 
+								if (tile_id < 16) {
+									count += 1; 
+								}
+							} else if (neighbor_x >= 0 and neighbor_x < CHUNK_SIZE
+    		            and neighbor_y >= 0 and neighbor_y < CHUNK_SIZE) {
+    		            if (neighbor_x != tile_x or neighbor_y != tile_y) {
+    		                if (chunk[@intCast(neighbor_x)][@intCast(neighbor_y)] == 1) {
+    		                    count += 1;
+    		                }
+    		            }
+    		        }
+						}
+    		}
+				return count; 
+			}, 
+			else => {
+					neighbor_x = tile_x - 1; 
+    			while (neighbor_x <= tile_x + 1) : (neighbor_x += 1) {
+    			    neighbor_y = tile_y - 1;
+    			    while(neighbor_y <= tile_y + 1) : (neighbor_y += 1) {
+    			        if (neighbor_x >= 0 and neighbor_x < CHUNK_SIZE
+    			            and neighbor_y >= 0 and neighbor_y < CHUNK_SIZE) {
+    			            if (neighbor_x != tile_x or neighbor_y != tile_y) {
+    			                if (chunk[@intCast(neighbor_x)][@intCast(neighbor_y)] == 1) {
+    			                    count += 1;
+    			                }
+    			            }
+    			        }
+							}
+    			}
+				}
+		} 
+
+		return count;
+}
+
+//at the end of new chunk generation, we need to redraw the old chunk to match the new one 
+//we get the sides for the old chunk, which we already have,
+//and then we need to get the sides for the new chunk we've just generated
+fn recountAndRedrawChunkEdges(old_chunk_border: [64]tiles.Tile, new_chunk_border: [64]tiles.Tile) !void {
+	_ = old_chunk_border; 	
+	_ = new_chunk_border; 
 }
 
 
@@ -484,7 +564,6 @@ fn deserializeJSONMapFile(alloc: std.mem.Allocator, file: std.fs.File) ![]tiles.
         .{}
     );
     defer json.deinit(); 
-    std.debug.print("{any}", .{json}); 
         
     var json_copy = try alloc.dupe(tiles.Tile, json.value.tilesFromSlice); 
     return json_copy; 
