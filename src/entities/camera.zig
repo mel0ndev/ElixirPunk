@@ -27,8 +27,8 @@ pub fn init(t: *Rect, w: f32, h: f32) Camera2D {
     return c; 
 }
     
-pub fn followPlayer(camera: *Camera2D, player_ref: *player.Player) void {
-    const player_pos: Vec2 = player.Player.getPlayerPos(player_ref);         
+pub fn followPlayer(camera: *Camera2D) void {
+    const player_pos: Vec2 = player.Player.getPlayerPos();         
     camera.target = player_pos;   
 }
 
