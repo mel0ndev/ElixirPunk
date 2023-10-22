@@ -154,7 +154,7 @@ pub fn main() !void {
     //-----------------------------------------------------------------------------------
     player.deinitPlayer(); 
     sprites.deinitSprites(); 
-    world.deinitMap(); 
+    world.deinitMap(allocator); 
 
     raylib.CloseWindow(); // Close window and OpenGL context
     //-----------------------------------------------------------------------------------

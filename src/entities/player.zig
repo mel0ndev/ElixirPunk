@@ -3,7 +3,9 @@ const raylib = @cImport({
     @cInclude("raylib.h");
 });
 const sprites = @import("./sprites.zig"); 
+const utils = @import("../utils/utils.zig"); 
 const Vec2 = raylib.Vector2; 
+const iVec2 = utils.iVec2;
 const Rect = raylib.Rectangle; 
 const Texture2D = raylib.Texture2D; 
 
@@ -231,10 +233,10 @@ pub fn getPlayerToTilePosition() Vec2 {
     return .{.x = tile_x, .y = tile_y}; 
 }
 
-pub fn getPlayerToChunkPosition() Vec2 {
+pub fn getPlayerToChunkPosition() iVec2 {
     const tile_pos = getPlayerToTilePosition(); 
-    const chunk_x = @divFloor(tile_pos.x, 64); 
-    const chunk_y = @divFloor(tile_pos.y, 64); 
+    const chunk_x = @as(i32, @intFromFloat(@divFloor(tile_pos.x, 64))); 
+    const chunk_y = @as(i32, @intFromFloat(@divFloor(tile_pos.y, 64))); 
 
     return .{.x = chunk_x, .y = chunk_y}; 
 }

@@ -18,7 +18,7 @@ pub var tile_texture_map: Texture2D = undefined;
 var tile_set: std.AutoHashMap(u8, Vec2) = undefined;  
 
 pub fn initTiles(alloc: std.mem.Allocator) !void {
-    _ = try createTileList(alloc); 
+    //_ = try createTileList(alloc); 
     _ = try createTileHashMap(alloc); 
     _ = try createTilePlacementHashMap(alloc); 
     _ = try loadTextureMap(); 
@@ -27,12 +27,12 @@ pub fn initTiles(alloc: std.mem.Allocator) !void {
 
 pub fn update() void {
     //update tiles 
-    drawTiles(); 
+    //drawTiles(); 
 } 
 
 
 pub fn deinitTiles() void {
-    tile_list.deinit(); 
+    //tile_list.deinit(); 
     tile_set.deinit(); 
     tile_map_placement_data.deinit(); 
     raylib.UnloadTexture(tile_texture_map); 
@@ -108,10 +108,10 @@ pub const Tile = struct {
 }; 
 
 pub const TileData = struct {
-    count: i16,
+    count: i32,
     pos: Vec2, 
 
-    pub fn init(n_count: i16, position: Vec2) TileData {
+    pub fn init(n_count: i32, position: Vec2) TileData {
         var td = TileData{
             .count = n_count,
             .pos = position,
@@ -172,16 +172,11 @@ pub fn setTileMap() !void {
     }
 }
 
-pub fn drawTiles() void {
-    for (tile_list.items) |tile| {
+pub fn drawTiles(chunk: *const world.Chunk) void {
+    for (chunk.tile_list.items) |tile| {
         const rec_pos: Vec2 = tile_set.get(tile.tile_id).?; 
         const x = tile.tile_data.pos.x;
         const y = tile.tile_data.pos.y;
-
-        //if (x == 5 and y == 3) {
-        //    std.debug.print("tile id: {}\n", .{tile.tile_id}); 
-        //    std.debug.print("rec pos: {}\n", .{rec_pos});
-        //}
 
         const world_pos = raylib.Rectangle{
             .x = x * 32,
