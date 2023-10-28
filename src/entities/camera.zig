@@ -33,7 +33,7 @@ pub fn followPlayer(camera: *Camera2D) void {
 }
 
 pub fn zoomCamera(camera: *Camera2D) void {
-    camera.zoom = std.math.clamp(camera.zoom, 1.0, 2.0); 
+    camera.zoom = std.math.clamp(camera.zoom, 0.5, 2.0); 
     camera.zoom += raylib.GetMouseWheelMove() * 0.05; 
 }
 

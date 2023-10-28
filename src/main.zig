@@ -159,7 +159,3 @@ pub fn main() !void {
     raylib.CloseWindow(); // Close window and OpenGL context
     //-----------------------------------------------------------------------------------
 }
-
-
-
-

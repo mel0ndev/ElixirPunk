@@ -3,7 +3,7 @@ const raylib = @cImport({
     @cInclude("raylib.h");
 });
 const sprites = @import("./sprites.zig"); 
-const utils = @import("../utils/utils.zig"); 
+const utils = @import("../utils/utils.zig");
 const Vec2 = raylib.Vector2; 
 const iVec2 = utils.iVec2;
 const Rect = raylib.Rectangle; 
@@ -67,7 +67,7 @@ pub const Player = struct {
             },
             .colliders = undefined,
             .rotation = rotation,
-            .speed = Vec2{.x = 3, .y = 3}, 
+            .speed = Vec2{.x = 6, .y = 6}, 
             .direction = Vec2{.x = 0, .y = 0}, 
         }; 
         
