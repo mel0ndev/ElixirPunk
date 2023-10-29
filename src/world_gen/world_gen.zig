@@ -17,12 +17,11 @@ const iVec2 = utils.iVec2;
 pub var DEBUG_MODE_NEIGHBORS: bool = false; 
 pub var DEBUG_MODE_TILE_POS: bool = false; 
 
-//chunks are therefore 64x64 tiles
+//chunks are 64x64 tiles (tiles are 16x16 and scaled by 2, so in game they are 32x32)
 const CHUNK_SIZE: u32 = 64; 
 const CHUNK_LOAD_DISTANCE: u32 = 16;  //tiles away from chunk border
 var chunk: [CHUNK_SIZE][CHUNK_SIZE]u8 = undefined; 
 
-//puts all the loaded chunks on the heap
 var chunk_list: std.ArrayList(*Chunk) = undefined; 
 var chunk_map: std.AutoHashMap(iVec2, *Chunk) = undefined; 
 
@@ -76,8 +75,7 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     //create file basic file
     _ = try createChunkList(alloc);
     _ = try createChunkMap(alloc); 
-    //TODO:
-    //check if file has already been created, if it is, load it, if not, create it
+
     var file = createChunkFile(alloc, 0, 0) catch |err| 
         switch (err) {
             error.PathAlreadyExists => {
@@ -196,7 +194,7 @@ fn loadSavedChunk(alloc: std.mem.Allocator, chunk_pos: iVec2) !void {
     try chunk_map.put(chunk_pos, new_chunk); 
 }
 
-//this is player position in TILES not f32
+//this is player position in tiles not f32
 fn createNewChunk(
         alloc: std.mem.Allocator, 
         player_position: Vec2,
@@ -216,12 +214,14 @@ fn createNewChunk(
         ) catch |e| 
             switch (e) {
                 error.PathAlreadyExists => {
-                    const _chunk = chunk_map.get(.{.x = current_chunk.x + 1, .y = current_chunk.y}); 
+                    const new_chunk_position: iVec2 = .{.x = current_chunk.x + 1, .y = current_chunk.y}; 
+                    const _chunk = chunk_map.get(new_chunk_position); 
+                    //checking if chunk exists in hashmap already, if it does, we ignore loading
                     if (_chunk) |c| {
                         _ = c;
                         return;     
                     } else {
-                        try loadSavedChunk(alloc, .{.x = current_chunk.x + 1, .y = current_chunk.y}); 
+                        try loadSavedChunk(alloc, new_chunk_position); 
                         return; 
                     }
                 }, 
@@ -233,11 +233,20 @@ fn createNewChunk(
         
 	//the side tiles here are for the players current position, which on generation, is the chunk the player is currently in
         var old_chunk = getChunk(current_chunk); 
+
+        //get the side tiles for the current/old chunk based on the side the player is trying to load
 	const adjacent_chunk_tiles = getSideTiles(old_chunk, ChunkSide.POS_X, chunk_maxes.max_x - 1); 
         try generateChunkData(adjacent_chunk_tiles, ChunkSide.POS_X);     
 
         const new_chunk_position = iVec2{.x = current_chunk.x + 1, .y = current_chunk.y};
-	var new_chunk = try convertToTiles(alloc, @intCast(new_chunk_position.x * 64), 0, new_chunk_position, adjacent_chunk_tiles, ChunkSide.POS_X); 
+	var new_chunk = try convertToTiles(
+            alloc,
+            @intCast(new_chunk_position.x * 64),
+            @intCast(new_chunk_position.y * 64),
+            new_chunk_position,
+            adjacent_chunk_tiles,
+            ChunkSide.POS_X
+        ); 
 
         try chunk_list.append(new_chunk); 
         try chunk_map.putNoClobber(new_chunk_position, new_chunk); 
@@ -257,10 +266,114 @@ fn createNewChunk(
         
     //negative x direction
     if (@as(i32, @intFromFloat(player_position.x)) < chunk_maxes.min_x + CHUNK_LOAD_DISTANCE) {
+        var new_file = createChunkFile(
+            alloc, 
+            current_chunk.x - 1,
+            current_chunk.y
+        ) catch |e| 
+            switch (e) {
+                error.PathAlreadyExists => {
+                    const new_chunk_position: iVec2 = .{.x = current_chunk.x - 1, .y = current_chunk.y}; 
+                    const _chunk = chunk_map.get(new_chunk_position); 
+                    if (_chunk) |c| {
+                        _ = c;
+                        return;     
+                    } else {
+                        try loadSavedChunk(alloc, new_chunk_position); 
+                        return; 
+                    }
+                }, 
+                else => { 
+                    return e; 
+                },
+            };
+        defer new_file.close(); 
+        
+	//the side tiles here are for the players current position, which on generation, is the chunk the player is currently in
+        var old_chunk = getChunk(current_chunk); 
+	const adjacent_chunk_tiles = getSideTiles(old_chunk, ChunkSide.NEG_X, chunk_maxes.min_x); 
+        try generateChunkData(adjacent_chunk_tiles, ChunkSide.NEG_X);     
+
+        const new_chunk_position = iVec2{.x = current_chunk.x - 1, .y = current_chunk.y};
+	var new_chunk = try convertToTiles(
+            alloc, 
+            @intCast(new_chunk_position.x * 64),
+            @intCast(new_chunk_position.y * 64),
+            new_chunk_position,
+            adjacent_chunk_tiles,
+            ChunkSide.NEG_X
+        ); 
+
+        try chunk_list.append(new_chunk); 
+        try chunk_map.putNoClobber(new_chunk_position, new_chunk); 
+
+	//save converted data to file
+        //on slower PCs this is horribly slow. move somewhere else when shit is working better 
+    	try std.json.stringify(
+    	    tiles.TileList{.tilesFromSlice = new_chunk.tile_list.items}, 
+    	    .{}, 
+    	    new_file.writer()
+    	); 
+
+        //this may be easier to do if new tile lists are separated into chunks instead of tiles
+        const new_tile_border = getSideTiles(new_chunk, ChunkSide.POS_X, new_chunk.max_tiles.max_x - 1);  
+        try recountAndRedrawChunkEdges(alloc, old_chunk, adjacent_chunk_tiles, new_tile_border); 
     }
     
     //positive y direction
     if (@as(i32, @intFromFloat(player_position.y)) > chunk_maxes.max_y - CHUNK_LOAD_DISTANCE) {
+        var new_file = createChunkFile(
+            alloc, 
+            current_chunk.x,
+            current_chunk.y + 1
+        ) catch |e| 
+            switch (e) {
+                error.PathAlreadyExists => {
+                    const new_chunk_position: iVec2 = .{.x = current_chunk.x, .y = current_chunk.y + 1}; 
+                    const _chunk = chunk_map.get(new_chunk_position); 
+                    if (_chunk) |c| {
+                        _ = c;
+                        return;     
+                    } else {
+                        try loadSavedChunk(alloc, new_chunk_position); 
+                        return; 
+                    }
+                }, 
+                else => { 
+                    return e; 
+                },
+            };
+        defer new_file.close(); 
+        
+	//the side tiles here are for the players current position, which on generation, is the chunk the player is currently in
+        var old_chunk = getChunk(current_chunk); 
+	const adjacent_chunk_tiles = getSideTiles(old_chunk, ChunkSide.POS_Y, chunk_maxes.max_y - 1); 
+        try generateChunkData(adjacent_chunk_tiles, ChunkSide.POS_Y);     
+
+        const new_chunk_position = iVec2{.x = current_chunk.x, .y = current_chunk.y + 1};
+	var new_chunk = try convertToTiles(
+            alloc,
+            @intCast(new_chunk_position.x * 64), 
+            @intCast(new_chunk_position.y * 64),
+            new_chunk_position,
+            adjacent_chunk_tiles,
+            ChunkSide.POS_Y
+        ); 
+
+        try chunk_list.append(new_chunk); 
+        try chunk_map.putNoClobber(new_chunk_position, new_chunk); 
+
+	//save converted data to file
+        //on slower PCs this is horribly slow. move somewhere else when shit is working better 
+    	try std.json.stringify(
+    	    tiles.TileList{.tilesFromSlice = new_chunk.tile_list.items}, 
+    	    .{}, 
+    	    new_file.writer()
+    	); 
+
+        //this may be easier to do if new tile lists are separated into chunks instead of tiles
+        const new_tile_border = getSideTiles(new_chunk, ChunkSide.NEG_Y, new_chunk.max_tiles.min_y);  
+        try recountAndRedrawChunkEdges(alloc, old_chunk, adjacent_chunk_tiles, new_tile_border); 
     }
     
     //negative y direction
@@ -313,7 +426,6 @@ fn getMaxAndMinForChunk(chunk_pos: iVec2) MaxTiles {
 
 fn generateChunkData(adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?ChunkSide) !void {
 		
-    //TODO: add other directions
     for (0..CHUNK_SIZE) |x| {
         for (0..CHUNK_SIZE) |y| {
             var random_num: u8 = r.random().intRangeLessThan(u8, 0, 100);
@@ -322,23 +434,57 @@ fn generateChunkData(adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?ChunkSi
 		//if we do, check the side
     		    switch(chunk_side.?) {
                         ChunkSide.POS_X => {
-		        if (x == 0) {
-			    if (chunk_tiles[y].tile_id < 16) {
-			        chunk[x][y] = SOLID; 
-			    } else {
-			        chunk[x][y] = WATER; 
-			    }
-			} 
+		            if (x == 0) {
+			        if (chunk_tiles[y].tile_id < 16) {
+			            chunk[x][y] = SOLID; 
+			        } else {
+			            chunk[x][y] = WATER; 
+			        }
+			    } 
 
-			if (x != 0) {
-                            if (@mod(random_num, 10) == 0) {
-                                chunk[x][y] = WATER; 
-                            } else {
-			        chunk[x][y] = if (random_num < GRASS_CHANCE) SOLID else WATER; 	
-                            }
-		        }
-                    },
-                    else => return,
+			    if (x != 0) {
+                                if (@mod(random_num, 10) == 0) {
+                                    chunk[x][y] = WATER; 
+                                } else {
+			            chunk[x][y] = if (random_num < GRASS_CHANCE) SOLID else WATER; 	
+                                }
+		            }
+                        },
+                        ChunkSide.NEG_X => {
+		            if (x == 63) {
+		                if (chunk_tiles[y].tile_id < 16) {
+		                    chunk[x][y] = SOLID; 
+		                } else {
+		                    chunk[x][y] = WATER; 
+		                }
+		            } 
+
+			    if (x != 0) {
+                                if (@mod(random_num, 10) == 0) {
+                                    chunk[x][y] = WATER; 
+                                } else {
+			            chunk[x][y] = if (random_num < GRASS_CHANCE) SOLID else WATER; 	
+                                }
+		            }
+                        }, 
+                        ChunkSide.POS_Y => {
+		            if (y == 0) {
+			        if (chunk_tiles[x].tile_id < 16) {
+			            chunk[x][y] = SOLID; 
+			        } else {
+			            chunk[x][y] = WATER; 
+			        }
+			    } 
+
+			    if (y != 0) {
+                                if (@mod(random_num, 10) == 0) {
+                                    chunk[x][y] = WATER; 
+                                } else {
+			            chunk[x][y] = if (random_num < GRASS_CHANCE) SOLID else WATER; 	
+                                }
+		            }
+                        }, 
+                        else => return,
 		} //end switch
 	    } else { //on initialize chunk 0, 0
                 if (@mod(random_num, 15) == 0) {
@@ -375,7 +521,6 @@ fn chunkCleanup(maybe_adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?ChunkS
     }
 }
 
-//TODO: check neighbors on chunk borders
 fn iterateChunkGen(maybe_adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?ChunkSide) void {
     for (0..CHUNK_SIZE) |x| {
         for (0..CHUNK_SIZE) |y| {
@@ -423,7 +568,23 @@ fn iterateChunkGen(maybe_adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?Chu
                                 chunk[x][y] = WATER; 
                             }
 		        }
-                
+                    },
+                    ChunkSide.POS_Y => {
+		        if (y == 0) {
+			    if (chunk_tiles[x].tile_id < 16) {
+			        chunk[x][y] = SOLID; 
+			    } else {
+			        chunk[x][y] = WATER; 
+			    }
+			} 
+
+			if (y != 0) {
+                            if (neighbor_data > 3) {
+                                chunk[x][y] = SOLID; 
+                            } else {
+                                chunk[x][y] = WATER; 
+                            }
+		        }
                     },
                     else => return,
 		} //end switch
@@ -440,8 +601,8 @@ fn iterateChunkGen(maybe_adjacent_chunk_tiles: ?[64]tiles.Tile, chunk_side: ?Chu
 
 fn convertToTiles(
 	alloc: std.mem.Allocator,
-	chunk_x: usize,
-	chunk_y: usize,
+	chunk_x: isize,
+	chunk_y: isize,
         chunk_pos: iVec2,
 	maybe_adjacent_chunk_tiles: ?[64]tiles.Tile,
 	chunk_side: ?ChunkSide
@@ -467,7 +628,10 @@ fn convertToTiles(
                 const tile_id = placementToTileId(placement);
                 const tile_data = tiles.TileData.init(
                     neighbor_count,
-                    Vec2{.x = @floatFromInt(x + chunk_x), .y = @floatFromInt(y + chunk_y)}
+                    Vec2{
+                        .x = @floatFromInt(@as(isize, @intCast(x)) + chunk_x), 
+                        .y = @floatFromInt(@as(isize, @intCast(y)) + chunk_y)
+                    }
                 );  
                 const tile = tiles.Tile.init(tile_data, tile_id); 
                 try new_chunk.tile_list.append(tile); 
@@ -486,7 +650,7 @@ fn convertToTiles(
                             chunk_side,
                             false
                         ),
-                        Vec2{.x = @floatFromInt(x + chunk_x), .y = @floatFromInt(y + chunk_y)}
+                        Vec2{.x = @floatFromInt(@as(isize, @intCast(x)) + chunk_x), .y = @floatFromInt(@as(isize, @intCast(y)) + chunk_y)}
                     );  
                     const tile = tiles.Tile.init(tile_data, random_num); 
                     try new_chunk.tile_list.append(tile); 
@@ -501,7 +665,7 @@ fn convertToTiles(
                             chunk_side,
                             false
                         ),
-                        Vec2{.x = @floatFromInt(x + chunk_x), .y = @floatFromInt(y + chunk_y)}
+                        Vec2{.x = @floatFromInt(@as(isize, @intCast(x)) + chunk_x), .y = @floatFromInt(@as(isize, @intCast(y)) + chunk_y)}
                     );  
                     const tile = tiles.Tile.init(tile_data, 0); 
                     try new_chunk.tile_list.append(tile); 
@@ -819,6 +983,4 @@ fn getTileFromChunk(chunk_to_search: *Chunk, x: i32, y: i32) tiles.Tile {
 
     return return_tile; 
 }
-
-
 
