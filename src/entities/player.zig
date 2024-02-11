@@ -22,8 +22,9 @@ var source_rec: Rect = undefined;
 
 pub var player_current_chunk: iVec2 = undefined; 
 
-pub fn initPlayer(alloc: std.mem.Allocator, initialChunk: *world_gen.Chunk) !void {
+pub fn initPlayer(alloc: std.mem.Allocator) !void {
     player_texture = raylib.LoadTexture("src/assets/newmc1-sheet.png");
+    _ = alloc; 
     frame_rec = .{
         .x = 0, 
         .y = 0,
@@ -31,26 +32,14 @@ pub fn initPlayer(alloc: std.mem.Allocator, initialChunk: *world_gen.Chunk) !voi
         .height = @floatFromInt(@divTrunc(player_texture.height, 2))
     };
     source_rec = Rect{.x = frame_rec.x, .y = frame_rec.y, .width = 32, .height = 32}; 
-    var spawnable_tiles = std.ArrayList(tiles.Tile).init(alloc); 
-    defer spawnable_tiles.deinit(); 
-
-    for (initialChunk.tile_list.items) |tile| {
-        if (tile.tile_id < 16) {
-            try spawnable_tiles.append(tile); 
-        }
-    }
-
-    var spawn_index: usize = r.random().intRangeLessThan(usize, 0, spawnable_tiles.items.len); 
-    const spawn_tile = spawnable_tiles.swapRemove(spawn_index); 
 
     player = Player.init(
-        spawn_tile.tile_data.pos.x * 32, 
-        spawn_tile.tile_data.pos.y * 32,
+        32, 
+        32,
         16, 
         16, 
         0.0
     ); 
-    player_current_chunk = getPlayerToChunkPosition(); 
 
     try player.addToSpriteList();  
 }
@@ -131,15 +120,7 @@ pub const Player = struct {
         //self.speed.x = std.math.clamp(self.speed.x, 0, speed); 
         //self.speed.y = std.math.clamp(self.speed.y, 0, speed); 
         self.direction = .{.x = 0, .y = 0};  
-        const current_tile = getPlayerToTilePosition(); 
-        const current_tile_info = world_gen.getTileInfo(getPlayerToChunkPosition(), current_tile.x, current_tile.y); 
-        
-        switch(current_tile_info.tile_id) {
-            20 => player.speed = .{.x = 1.0, .y = 1.0},
-            else => player.speed = .{.x = 3.0, .y = 3.0},
-        }
 
-        
         if (raylib.IsKeyDown(raylib.KEY_D)) {
             source_rec.width = 32; 
             self.direction.x = 1; 
@@ -286,25 +267,16 @@ pub fn getPlayerToTilePosition() Vec2 {
     return .{.x = tile_x, .y = tile_y}; 
 }
 
-pub fn getPlayerToChunkPosition() iVec2 {
-    const tile_pos = getPlayerToTilePosition(); 
-    const chunk_x = @as(i32, @intFromFloat(@divFloor(tile_pos.x, 64))); 
-    const chunk_y = @as(i32, @intFromFloat(@divFloor(tile_pos.y, 64))); 
-
-    return .{.x = chunk_x, .y = chunk_y}; 
-}
-
-
 //TODO: REMOVE DEBUG
 pub fn drawPlayerTilePosition() void {
-    const pv = getPlayerToChunkPosition(); 
-        var font = raylib.GetFontDefault(); 
-        var buf: [1024]u8 = undefined;
-        const s = std.fmt.bufPrintZ(
+    const pv = getPlayerToTilePosition(); 
+    var font = raylib.GetFontDefault(); 
+    var buf: [1024]u8 = undefined;
+    const s = std.fmt.bufPrintZ(
             &buf, 
             "{d}, {d}", 
             .{pv.x, pv.y}
-        ) catch @panic("error");
+    ) catch @panic("error");
         raylib.DrawTextPro(
             font,
             s,

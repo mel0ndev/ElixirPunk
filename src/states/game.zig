@@ -11,7 +11,7 @@ pub var cam: raylib.Camera2D = undefined;
 pub fn initGame(alloc: std.mem.Allocator) !void {
     try world_gen.initMap(alloc); 
     try sprites.initSprites(alloc); 
-    try player.initPlayer(alloc, world_gen.chunk_list.items[0]); 
+    try player.initPlayer(alloc); 
     //cam = camera.init(&p.sprite.rect, p.sprite.rect.x, p.sprite.rect.y); 
 }
 
