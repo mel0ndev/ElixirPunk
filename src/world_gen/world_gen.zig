@@ -5,7 +5,7 @@ const raylib = @cImport({
 const tiles = @import("./tiles.zig"); 
 const player = @import("../entities/player.zig"); 
 const utils = @import("../utils/utils.zig"); 
-//const foliage = @import("./foliage.zig"); 
+const foliage = @import("./foliage.zig"); 
 //const interactables = @import("../entities/interactables.zig"); 
 //TODO: seed can be generated at world generation
 var r  = std.rand.DefaultPrng.init(0); 
@@ -17,13 +17,16 @@ const iVec2 = utils.iVec2;
 pub var DEBUG_MODE_NEIGHBORS: bool = false; 
 pub var DEBUG_MODE_TILE_POS: bool = false; 
 
+pub var chunk_list: std.ArrayList(*Chunk) = undefined; 
+pub var chunk_map: std.AutoHashMap(iVec2, *Chunk) = undefined; 
+pub var walkable_tiles: std.ArrayList(tiles.Tile) = undefined; 
+
 //chunks are 64x64 tiles (tiles are 16x16 and scaled by 2, so in game they are 32x32)
 const CHUNK_SIZE: u32 = 64; 
 const CHUNK_LOAD_DISTANCE: u32 = 16;  //tiles away from chunk border
 var chunk: [CHUNK_SIZE][CHUNK_SIZE]u8 = undefined; 
 
-var chunk_list: std.ArrayList(*Chunk) = undefined; 
-var chunk_map: std.AutoHashMap(iVec2, *Chunk) = undefined; 
+//FLAGS
 
 const WATER: u8 = 0; 
 const SOLID: u8 = 1; 
@@ -80,6 +83,7 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
         switch (err) {
             error.PathAlreadyExists => {
                 try tiles.initTiles(alloc);
+                try foliage.initFoliage(alloc); 
                 try loadSavedChunk(alloc, .{.x = 0, .y = 0}); 
                 return; 
             },
@@ -91,7 +95,7 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     try generateChunkData(null, null); 
     //gen hashmap data
     try tiles.initTiles(alloc); 
-    //try foliage.setFoliageMap(); 
+    try foliage.initFoliage(alloc); 
     //try interactables.initInteractables(); 
     //  - convert to tilemap
     //
@@ -112,14 +116,18 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
 
 pub fn update(alloc: std.mem.Allocator) !void {
     //tiles.update();
+    foliage.updateFoliage(); 
     drawChunks(); 
     const player_position = player.getPlayerToTilePosition(); 
     const current_chunk = player.getPlayerToChunkPosition(); 
+    //TODO: load all in memory tiles into walkable tiles array
+    try getWalkableTiles(getChunk(current_chunk)); 
     try createNewChunk(alloc, player_position, current_chunk); 
 }
 
 pub fn deinitMap(alloc: std.mem.Allocator) void {
     tiles.deinitTiles(); 
+    foliage.deinitFoliage(); 
 
     for (chunk_list.items) |c| {
         c.tile_list.deinit(); 
@@ -127,6 +135,7 @@ pub fn deinitMap(alloc: std.mem.Allocator) void {
     }
 
     chunk_list.deinit(); 
+    walkable_tiles.deinit(); 
     chunk_map.deinit(); 
 }
 
@@ -138,6 +147,7 @@ fn drawChunks() void {
 
 fn createChunkList(alloc: std.mem.Allocator) !*std.ArrayList(*Chunk) {
     chunk_list = std.ArrayList(*Chunk).init(alloc); 
+    walkable_tiles = std.ArrayList(tiles.Tile).init(alloc); 
     return &chunk_list;  
 }
 
@@ -203,7 +213,7 @@ fn createNewChunk(
 
     const chunk_maxes = getMaxAndMinForChunk(current_chunk); 
     
-    if (@as(i32, @intFromFloat(player_position.x)) > chunk_maxes.max_x - CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.x)) >= chunk_maxes.max_x - CHUNK_LOAD_DISTANCE) {
         //check if current chunk data exists
         //if it does, we load it to next_chunk_list
         //if it does not, we generate it
@@ -265,7 +275,7 @@ fn createNewChunk(
     }
         
     //negative x direction
-    if (@as(i32, @intFromFloat(player_position.x)) < chunk_maxes.min_x + CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.x)) <= chunk_maxes.min_x + CHUNK_LOAD_DISTANCE) {
         var new_file = createChunkFile(
             alloc, 
             current_chunk.x - 1,
@@ -321,7 +331,7 @@ fn createNewChunk(
     }
     
     //positive y direction
-    if (@as(i32, @intFromFloat(player_position.y)) > chunk_maxes.max_y - CHUNK_LOAD_DISTANCE) {
+    if (@as(i32, @intFromFloat(player_position.y)) >= chunk_maxes.max_y - CHUNK_LOAD_DISTANCE) {
         var new_file = createChunkFile(
             alloc, 
             current_chunk.x,
@@ -668,6 +678,15 @@ fn convertToTiles(
                         Vec2{.x = @floatFromInt(@as(isize, @intCast(x)) + chunk_x), .y = @floatFromInt(@as(isize, @intCast(y)) + chunk_y)}
                     );  
                     const tile = tiles.Tile.init(tile_data, 0); 
+                    
+                    //spawn trees and bushes only on tiles without flowers
+                    try foliage.generateFoliageData(
+                        x, 
+                        y,
+                        @intCast(chunk_x), 
+                        @intCast(chunk_y),
+                    ); 
+
                     try new_chunk.tile_list.append(tile); 
                 }
             }
@@ -982,5 +1001,30 @@ fn getTileFromChunk(chunk_to_search: *Chunk, x: i32, y: i32) tiles.Tile {
     }
 
     return return_tile; 
+}
+
+pub fn getTileInfo(chunk_to_search: iVec2, x: f32, y: f32) tiles.Tile {
+    var foundTile: tiles.Tile = undefined; 
+    const current_chunk = getChunk(chunk_to_search); 
+    for (current_chunk.tile_list.items) |tile| {
+        if (tile.tile_data.pos.x == x and tile.tile_data.pos.y == y) {
+            foundTile = tile; 
+        }
+    }
+
+    return foundTile; 
+}
+
+fn getWalkableTiles(current_chunk: *Chunk) !void {
+    if (current_chunk.position.x == player.player_current_chunk.x and 
+        current_chunk.position.y == player.player_current_chunk.y) {
+        return; 
+    } else {
+        for (current_chunk.tile_list.items) |tile| {
+            if (tile.tile_id < 16) {
+                try walkable_tiles.append(tile); 
+            }
+        }
+    }
 }
 

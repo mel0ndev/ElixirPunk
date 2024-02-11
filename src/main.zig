@@ -12,10 +12,11 @@ const sprites = @import("entities/sprites.zig");
 //const bullets = @import("entities/interactables/bullets.zig"); 
 const world = @import("world_gen/world_gen.zig"); 
 const tiles = @import("world_gen/tiles.zig"); 
+const game = @import("states/game.zig"); 
 //const foliage = @import("world_gen/foliage.zig"); 
 //const bullets = @import("entities/interactables/bullets.zig"); 
 //const ui = @import("./ui/ui.zig"); 
-const debug_menu = @import("./ui/debug_menu.zig"); 
+const debug_menu = @import("ui/debug_menu.zig"); 
 
 const target_frame_time: f32 = 0.016667; 
 
@@ -51,10 +52,10 @@ pub fn main() !void {
     debug_menu.initDebugMenu(); 
     
     ////[x] 
-    try sprites.initSprites(allocator); 
+    //try sprites.initSprites(allocator); 
 
     ////[x]
-    try player.initPlayer(screen_width, screen_height); //can have this return a player pointer if we need 
+    //try player.initPlayer(screen_width, screen_height); //can have this return a player pointer if we need 
     ////we have to refactor enemies completely, so leave until last
     ////[ ]
     //var enemy_list = try enemies.BasicEnemy.addEnemies(allocator, 10); 
@@ -65,7 +66,7 @@ pub fn main() !void {
     //[ ] [x] 
     //try bullets.initBullets(); 
     //defer deinitBullets(); 
-
+    try game.initGame(allocator); 
     //
     ////[x]
     //try towers.initTowers(alloc);
@@ -75,9 +76,9 @@ pub fn main() !void {
     //possibly leaking memory  
     //[ ]
     //suspected memory leaker
-    try world.initMap(allocator); 
+    //try world.initMap(allocator); 
     //defer world.deinitMap(); 
-    var cam = camera.init(&player.player.sprite.rect, player.player.sprite.rect.x, player.player.sprite.rect.y); 
+    var cam = camera.init(&player.player.sprite.rect); 
     //_ = try world.createTileHapMap(allocator); 
     //try world.Tile.setTileMap(16); 
     //try world.Tile.pickTiles(); 
@@ -96,15 +97,16 @@ pub fn main() !void {
         //enter 2d camera mode
         raylib.BeginMode2D(cam);
 
-        try world.update(allocator); 
+        //try world.update(allocator); 
 
         
         //player updates 
-        player.update(delta_time);  
+        //player.update(delta_time);  
 
         //try sprites.update(allocator); 
         ////
         ////try entities.checkCollisions(&p); 
+        try game.update(allocator, delta_time); 
 
         camera.followPlayer(&cam); 
         camera.zoomCamera(&cam); 
@@ -152,9 +154,10 @@ pub fn main() !void {
 
     // De-Initialization
     //-----------------------------------------------------------------------------------
-    player.deinitPlayer(); 
-    sprites.deinitSprites(); 
-    world.deinitMap(allocator); 
+    //player.deinitPlayer(); 
+    //sprites.deinitSprites(); 
+    //world.deinitMap(allocator); 
+    game.deinitGame(allocator); 
 
     raylib.CloseWindow(); // Close window and OpenGL context
     //-----------------------------------------------------------------------------------
