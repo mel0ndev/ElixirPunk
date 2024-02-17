@@ -11,7 +11,7 @@ const Rect = raylib.Rectangle;
 
 //TODO: add checks for fullscreen
 pub fn init(t: *Rect) Camera2D {
-    var c = Camera2D {
+    const c = Camera2D {
         .target = Vec2 {
             .x = t.x,
             .y = t.y,    

@@ -30,7 +30,7 @@ pub const Foliage = struct {
         ftype: FoliageType
         ) Foliage {
 
-        var f = Foliage{
+        const f = Foliage{
             .sprite = sprites.Sprite{
                 .texture = texture,
                 .rect = rect,

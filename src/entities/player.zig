@@ -68,7 +68,7 @@ pub const Player = struct {
 
 
     pub fn init(x: f32, y: f32, width: f32, height: f32, rotation: f32) Player {
-        var p = Player {
+        const p = Player {
             .sprite = sprites.Sprite{
                 .texture = player_texture,
                 .rect = Rect {
@@ -270,7 +270,7 @@ pub fn getPlayerToTilePosition() Vec2 {
 //TODO: REMOVE DEBUG
 pub fn drawPlayerTilePosition() void {
     const pv = getPlayerToTilePosition(); 
-    var font = raylib.GetFontDefault(); 
+    const font = raylib.GetFontDefault(); 
     var buf: [1024]u8 = undefined;
     const s = std.fmt.bufPrintZ(
             &buf, 

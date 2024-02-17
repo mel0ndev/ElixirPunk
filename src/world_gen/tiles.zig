@@ -72,7 +72,7 @@ pub const Tile = struct {
     has_interactable: bool = false, //foliage, chest spawn, portal, altar, etc
 
     pub fn init(tile_data: TileData, tile_id: u8) Tile {
-        var tile = Tile{
+        const tile = Tile{
             .tile_data = tile_data,
             .tile_id = tile_id,
         };   
@@ -112,7 +112,7 @@ pub const TileData = struct {
     pos: Vec2, 
 
     pub fn init(n_count: i32, position: Vec2) TileData {
-        var td = TileData{
+        const td = TileData{
             .count = n_count,
             .pos = position,
         }; 
@@ -146,7 +146,7 @@ fn loadTextureMap() !void {
 pub fn setTileMap() !void {
     for (0..GRASS_TILE_SIZE) |i| {
         const casted_i: f32 = @floatFromInt(i); 
-        var texture_postion: Vec2 = Vec2{
+        const texture_postion: Vec2 = Vec2{
            .x =  casted_i * 16,
            .y = 0,
         }; 
@@ -158,7 +158,7 @@ pub fn setTileMap() !void {
     
     for (0..WATER_TILE_SIZE) |i| {
         const casted_i: f32 = @floatFromInt(i); 
-        var texture_postion: Vec2 = Vec2{
+        const texture_postion: Vec2 = Vec2{
            .x =  casted_i * 16,
            .y = 16,
         }; 
@@ -202,7 +202,7 @@ pub fn drawTiles(chunk: *const world.Chunk) void {
 
         //IF DEBUGGING IS NEEDED
         if (world.DEBUG_MODE_NEIGHBORS) {
-            var font = raylib.GetFontDefault(); 
+            const font = raylib.GetFontDefault(); 
             var buf: [1024]u8 = undefined;
             const s = std.fmt.bufPrintZ(
                 &buf, 
@@ -226,7 +226,7 @@ pub fn drawTiles(chunk: *const world.Chunk) void {
                 raylib.RED
             ); 
         } else if (world.DEBUG_MODE_TILE_POS) {
-            var font = raylib.GetFontDefault(); 
+            const font = raylib.GetFontDefault(); 
             var buf: [1024]u8 = undefined;
             const s = std.fmt.bufPrintZ(
                 &buf, 

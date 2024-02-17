@@ -87,7 +87,7 @@ pub fn main() !void {
     while (!raylib.WindowShouldClose()) { // Detect window close button or ESC key
                                           
         //----------------------------------------------------------------------------------
-        var delta_time = raylib.GetFrameTime() / target_frame_time; 
+        const delta_time = raylib.GetFrameTime() / target_frame_time; 
         //enemies.spawn_timer -= 0.09; 
         // Draw
         //----------------------------------------------------------------------------------

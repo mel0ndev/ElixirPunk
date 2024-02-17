@@ -9,7 +9,6 @@ pub const iVec2 = struct {
     y: i32, 
 }; 
 
-
 pub fn cast(comptime T: type, ptr: *anyopaque) *T {
     return @as(*T, @alignCast(@ptrCast(ptr)));  
 }
