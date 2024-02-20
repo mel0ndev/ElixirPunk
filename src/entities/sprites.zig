@@ -26,7 +26,7 @@ pub fn initSprites(alloc: std.mem.Allocator) !void {
 pub fn update(alloc: std.mem.Allocator) !void {
    //update logic  
    //I don't think these need to be called every update?
-    var sorted_list = try sortSpritesForDrawOrder(); 
+    const sorted_list = try sortSpritesForDrawOrder(); 
     try drawSpritesInOrder(alloc, sorted_list); 
     //checkForHitboxCollisions(p); 
 }
@@ -53,7 +53,7 @@ fn sortingContext(context: void, a: Sprite, b: Sprite) bool {
 }
 
 fn sortSpritesForDrawOrder() ![]Sprite {
-    var list = try sprites_list.toOwnedSlice();   
+    const list = try sprites_list.toOwnedSlice();   
     std.mem.sort(Sprite, list, {}, sortingContext); 
 
     return list; 

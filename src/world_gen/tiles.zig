@@ -2,6 +2,7 @@ const std = @import("std");
 const raylib = @cImport({ @cInclude("raylib.h");
 });
 const world = @import("./world_gen.zig"); 
+const player = @import("../entities/player.zig"); 
 const Texture2D = raylib.Texture2D; 
 const Vec2 = raylib.Vector2; 
 
@@ -18,21 +19,21 @@ pub var tile_texture_map: Texture2D = undefined;
 var tile_set: std.AutoHashMap(u8, Vec2) = undefined;  
 
 pub fn initTiles(alloc: std.mem.Allocator) !void {
-    //_ = try createTileList(alloc); 
-    _ = try createTileHashMap(alloc); 
+    _ = try createTileList(alloc); 
     _ = try createTilePlacementHashMap(alloc); 
+    _ = try createTileHashMap(alloc); 
     _ = try loadTextureMap(); 
     try setTileMap(); 
 }
 
 pub fn update() void {
     //update tiles 
-    //drawTiles(); 
+    drawTiles(); 
 } 
 
 
 pub fn deinitTiles() void {
-    //tile_list.deinit(); 
+    tile_list.deinit(); 
     tile_set.deinit(); 
     tile_map_placement_data.deinit(); 
     raylib.UnloadTexture(tile_texture_map); 
@@ -72,7 +73,7 @@ pub const Tile = struct {
     has_interactable: bool = false, //foliage, chest spawn, portal, altar, etc
 
     pub fn init(tile_data: TileData, tile_id: u8) Tile {
-        var tile = Tile{
+        const tile = Tile{
             .tile_data = tile_data,
             .tile_id = tile_id,
         };   
@@ -112,7 +113,7 @@ pub const TileData = struct {
     pos: Vec2, 
 
     pub fn init(n_count: i32, position: Vec2) TileData {
-        var td = TileData{
+        const td = TileData{
             .count = n_count,
             .pos = position,
         }; 
@@ -146,7 +147,7 @@ fn loadTextureMap() !void {
 pub fn setTileMap() !void {
     for (0..GRASS_TILE_SIZE) |i| {
         const casted_i: f32 = @floatFromInt(i); 
-        var texture_postion: Vec2 = Vec2{
+        const texture_postion: Vec2 = Vec2{
            .x =  casted_i * 16,
            .y = 0,
         }; 
@@ -158,7 +159,7 @@ pub fn setTileMap() !void {
     
     for (0..WATER_TILE_SIZE) |i| {
         const casted_i: f32 = @floatFromInt(i); 
-        var texture_postion: Vec2 = Vec2{
+        const texture_postion: Vec2 = Vec2{
            .x =  casted_i * 16,
            .y = 16,
         }; 
@@ -172,8 +173,9 @@ pub fn setTileMap() !void {
     }
 }
 
-pub fn drawTiles(chunk: *const world.Chunk) void {
-    for (chunk.tile_list.items) |tile| {
+pub fn drawTiles() void {
+    const player_pos = player.getPlayerToTilePosition(); 
+    for (tile_list.items) |tile| {
         const rec_pos: Vec2 = tile_set.get(tile.tile_id).?; 
         const x = tile.tile_data.pos.x;
         const y = tile.tile_data.pos.y;
@@ -191,64 +193,70 @@ pub fn drawTiles(chunk: *const world.Chunk) void {
             .height = 16,
         };
 
-        raylib.DrawTexturePro(
-            tile_texture_map, 
-            tilemap_pos, 
-            world_pos, 
-            Vec2{.x = 0, .y = 0}, 
-            0, //rotation
-            raylib.RAYWHITE
-        ); 
+    
+        if (x >= player_pos.x - 32 and 
+            x <= player_pos.x + 32 and
+            y <= player_pos.y + 16 and
+            y >= player_pos.y - 16) {
+            raylib.DrawTexturePro(
+                tile_texture_map, 
+                tilemap_pos, 
+                world_pos, 
+                Vec2{.x = 0, .y = 0}, 
+                0, //rotation
+                raylib.RAYWHITE
+            ); 
 
-        //IF DEBUGGING IS NEEDED
-        if (world.DEBUG_MODE_NEIGHBORS) {
-            var font = raylib.GetFontDefault(); 
-            var buf: [1024]u8 = undefined;
-            const s = std.fmt.bufPrintZ(
-                &buf, 
-                "{d}", 
-                .{tile.tile_data.count}
-            ) catch @panic("error");
-            raylib.DrawTextPro(
-                font,
-                s,
-                Vec2{
-                    .x = world_pos.x + 8,
-                    .y = world_pos.y + 8,
-                },
-                Vec2{
-                    .x = 0,
-                    .y = 0,
-                },
-                0,
-                12,
-                1,
-                raylib.RED
-            ); 
-        } else if (world.DEBUG_MODE_TILE_POS) {
-            var font = raylib.GetFontDefault(); 
-            var buf: [1024]u8 = undefined;
-            const s = std.fmt.bufPrintZ(
-                &buf, 
-                "{d}, {d}", 
-                .{tile.tile_data.pos.x, tile.tile_data.pos.y}
-            ) catch @panic("error");
-            raylib.DrawTextPro(
-                font,
-                s,
-                Vec2{
-                    .x = world_pos.x + 8,
-                    .y = world_pos.y + 8,
-                },
-                Vec2{
-                    .x = 0,
-                    .y = 0,
-                },
-                0,
-                10,
-                1,
-                raylib.WHITE
-            ); 
+            //IF DEBUGGING IS NEEDED
+            if (world.DEBUG_MODE_NEIGHBORS) {
+                const font = raylib.GetFontDefault(); 
+                var buf: [1024]u8 = undefined;
+                const s = std.fmt.bufPrintZ(
+                    &buf, 
+                    "{d}", 
+                    .{tile.tile_data.count}
+                ) catch @panic("error");
+                raylib.DrawTextPro(
+                    font,
+                    s,
+                    Vec2{
+                        .x = world_pos.x + 8,
+                        .y = world_pos.y + 8,
+                    },
+                    Vec2{
+                        .x = 0,
+                        .y = 0,
+                    },
+                    0,
+                    12,
+                    1,
+                    raylib.RED
+                ); 
+            } else if (world.DEBUG_MODE_TILE_POS) {
+                const font = raylib.GetFontDefault(); 
+                var buf: [1024]u8 = undefined;
+                const s = std.fmt.bufPrintZ(
+                    &buf, 
+                    "{d}, {d}", 
+                    .{tile.tile_data.pos.x, tile.tile_data.pos.y}
+                ) catch @panic("error");
+                raylib.DrawTextPro(
+                    font,
+                    s,
+                    Vec2{
+                        .x = world_pos.x + 8,
+                        .y = world_pos.y + 8,
+                    },
+                    Vec2{
+                        .x = 0,
+                        .y = 0,
+                    },
+                    0,
+                    10,
+                    1,
+                    raylib.WHITE
+                ); 
+            }
         }
     }
 }
