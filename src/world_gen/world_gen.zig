@@ -24,10 +24,8 @@ pub var DEBUG_MODE_TILE_POS: bool = false;
 var vectorHashmap: std.AutoHashMap(iVec2, bool) = undefined; 
 var tile_deque: deque.Deque(iVec2) = undefined; 
 
-const MAP_SIZE: u32 = 256; 
+pub const MAP_SIZE: u32 = 128; 
 var map: [MAP_SIZE][MAP_SIZE]u8 = undefined; 
-
-//FLAGS
 
 const WATER: u8 = 0; 
 const SOLID: u8 = 1; 
@@ -39,12 +37,13 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     try createVectorHashMap(alloc); 
     tile_deque = try deque.Deque(iVec2).init(alloc); 
 
-    //generate map data
-    try generateMapData(); 
     //gen hashmap data
     try tiles.initTiles(alloc); 
     try foliage.initFoliage(alloc); 
     //try interactables.initInteractables(); 
+    
+    //generate map data
+    try generateMapData(); 
     //  - convert to tilemap
 
     //save converted data to file
@@ -53,6 +52,8 @@ pub fn initMap(alloc: std.mem.Allocator) !void {
     //    .{}, 
     //    file.writer()
     //); 
+    //x + y * MAP_SIZE; 
+    std.debug.print("{any}", .{tiles.tile_list.items[10 + 10 * MAP_SIZE]}); 
 		
 }
 
@@ -69,43 +70,9 @@ fn createVectorHashMap(alloc: std.mem.Allocator) !void {
 
 
 pub fn update(alloc: std.mem.Allocator) !void {
-    //tiles.update();
+    tiles.update();
     //foliage.updateFoliage(); 
     _ = alloc; 
-    const player_position = player.getPlayerToTilePosition();
-    //get the tiles around the player position in x radius (as big as camera + some) and only draw that to the screen
-    //TODO this is ok for now but not very performant 
-    for (map, 0..) |row, x| {
-        for (0..row.len) |y| {
-            //const converted_x = @as(c_int, @intCast(x)); 
-            const converted_x = @as(f32, @floatFromInt(x)) * 32; 
-            const converted_y = @as(f32, @floatFromInt(y)) * 32; 
-            if (converted_x >= (player_position.x * 32) + (player_position.x - 64 * 32) and 
-                converted_x <= (player_position.x * 32) - (player_position.x - 64 * 32) and
-                converted_y >= (player_position.y * 32) + (player_position.y - 48 * 32) and 
-                converted_y <= (player_position.y * 32) - (player_position.y - 48 * 32) 
-            ) {
-                if (map[x][y] == SOLID) {
-                    raylib.DrawRectangle(
-                        @as(c_int, @intCast(x)) * 32,
-                        @as(c_int, @intCast(y)) * 32, 
-                        32,
-                        32,
-                        raylib.GREEN
-                    ); 
-                } else {
-                    raylib.DrawRectangle(
-                        @as(c_int, @intCast(x)) * 32,
-                        @as(c_int, @intCast(y)) * 32, 
-                        32,
-                        32,
-                        raylib.BLUE
-                    ); 
-
-                }
-            }
-        }
-    }
 }
 
 pub fn deinitMap(alloc: std.mem.Allocator) void {
@@ -120,19 +87,63 @@ pub fn deinitMap(alloc: std.mem.Allocator) void {
 
 //use the lazy flood fill algorithm
 fn generateMapData() !void {
-    for (0..50) |i| {
+    for (0..10) |i| {
         _ = i; 
-        const random_num_x: u16 = r.random().intRangeLessThan(u16, 1, MAP_SIZE - 1);
-        const random_num_y: u16 = r.random().intRangeLessThan(u16, 1, MAP_SIZE - 1);
+        const random_num_x: u16 = r.random().intRangeLessThan(u16, 16, MAP_SIZE - 16);
+        const random_num_y: u16 = r.random().intRangeLessThan(u16, 16, MAP_SIZE - 16);
         const starting_point: iVec2 = .{.x = @intCast(random_num_x), .y = @intCast(random_num_y)}; 
         try tile_deque.pushBack(starting_point); 
          
         try lazyFloodFill(); 
     }
     
-    for (0..5) |i| {
+    for (0..10) |i| {
         _ = i; 
         mapCleanup(); 
+    }
+    
+
+    for (map, 0..) |row, x| {
+        for (0..row.len) |y| {
+            if (map[x][y] == WATER) {
+                const neighbor_count = getNeighborCount(@intCast(x), @intCast(y)); 
+                const placement = getCellToTile(@intCast(x), @intCast(y)); 
+                const tile_id = placementToTileId(placement);
+                const tile_data = tiles.TileData.init(
+                    neighbor_count,
+                    Vec2{
+                        .x = @as(f32, @floatFromInt(x)),
+                        .y = @as(f32, @floatFromInt(y))
+                    }
+                );
+                const tile = tiles.Tile.init(tile_data, tile_id);
+                try tiles.tile_list.append(tile);
+            } else {
+                var random_num = r.random().intRangeLessThan(u8, 0, 100);
+                if (@mod(random_num, 8) != 0) {
+                    const tile_data = tiles.TileData.init(
+                        getNeighborCount(
+                            @intCast(x), 
+                            @intCast(y), 
+                        ),
+                        Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                    );  
+                    const tile = tiles.Tile.init(tile_data, 0); 
+                    try tiles.tile_list.append(tile); 
+                } else {
+                    random_num = r.random().intRangeLessThan(u8, 1, 16);
+                    const tile_data = tiles.TileData.init(
+                        getNeighborCount(
+                            @intCast(x), 
+                            @intCast(y), 
+                        ),
+                        Vec2{.x = @floatFromInt(x), .y = @floatFromInt(y)}
+                    );  
+                    const tile = tiles.Tile.init(tile_data, random_num); 
+                    try tiles.tile_list.append(tile); 
+                }
+            }
+        }
     }
 }
 
@@ -142,6 +153,10 @@ fn mapCleanup() void {
             const neighbor_count = getNeighborCount(@intCast(x), @intCast(y)); 
             if (neighbor_count > 4) {
                 map[x][y] = SOLID; 
+            }
+
+            if (x < 16 or y < 16 or x > MAP_SIZE - 16 or y > MAP_SIZE - 16) {
+                map[x][y] = WATER; 
             }
         }
     }
@@ -154,6 +169,8 @@ fn lazyFloodFill() !void {
         const check_neighbors: bool = fillOrNot(); 
         if (check_neighbors == true) {
             try getNeighborsForFloodFill(coordinate.?.x, coordinate.?.y); 
+        } else {
+            map[@intCast(coordinate.?.x)][@intCast(coordinate.?.y)] = WATER; 
         } 
 
         CHANCE *= DECAY_FACTOR; 
@@ -232,5 +249,87 @@ fn getNeighborCount(tile_x: i16, tile_y: i16) i16 {
         }
     }
     return count;
+}
+
+fn getCellToTile(tile_x: i32, tile_y: i32) tiles.TilePlacement {
+    const neighbors = getLocalNeighborsAsArray(tile_x, tile_y);
+    var placement_counter: u32 = 0;
+    //convert neighbor data into tile data
+    for (neighbors, 0..) |pos, i| {
+        //if a neighbor is a grass tile
+        const casted_i: u32 = @intCast(i);
+        if (map[@intFromFloat(pos.x)][@intFromFloat(pos.y)] == 1) {
+            if (i == 1 or i == 3 or i == 4 or i == 6) {
+                const add = getPlacementNumber(casted_i);
+                placement_counter += add;
+            }
+        }
+    }
+     
+    const tile_placement = assignPlacement(placement_counter);
+    if (tile_x == 52 and tile_y == 17) {
+        std.debug.print("X: {}, Y: {}, COUNTER: {} PLACEMENT: {any} \n", .{tile_x, tile_y, placement_counter, tile_placement}); 
+    }
+    return tile_placement;
+}
+
+fn getPlacementNumber(n: u32) u32 {
+    const num: u32 = switch (n) {
+        1 => 1,
+        3 => 2,
+        4 => 4, 
+        6 => 8,
+        else => 0
+    };
+    
+    return num; 
+}
+
+fn assignPlacement(placement_counter: u32) tiles.TilePlacement {
+    const placement = switch (placement_counter) {
+        3 => tiles.TilePlacement.TOP_LEFT,
+        10 => tiles.TilePlacement.TOP_RIGHT,
+        5  => tiles.TilePlacement.BOTTOM_LEFT,
+        12 => tiles.TilePlacement.BOTTOM_RIGHT,
+        1 => tiles.TilePlacement.LEFT,
+        2 => tiles.TilePlacement.TOP,
+        8 => tiles.TilePlacement.RIGHT,
+        4 => tiles.TilePlacement.BOTTOM,
+        else => tiles.TilePlacement.MIDDLE,
+    };
+
+    return placement;
+}
+
+fn placementToTileId(tile_data: tiles.TilePlacement) u8 {
+    //get the neighbor count of the tile
+    return tiles.tile_map_placement_data.get(tile_data).?;
+}
+
+fn getLocalNeighborsAsArray(tile_x: i32, tile_y: i32) [8]Vec2 {
+    var return_tiles: [8]Vec2 = undefined;
+    var iterator: u8 = 0;
+
+    var neighbor_x: i32 = tile_x - 1;
+    while (neighbor_x <= tile_x + 1) : (neighbor_x += 1) {
+        var neighbor_y: i32 = tile_y - 1;
+        while (neighbor_y <= tile_y + 1) : (neighbor_y += 1) {
+            if (neighbor_x != tile_x or neighbor_y != tile_y) {
+                if (neighbor_x >= 0 and neighbor_x < MAP_SIZE
+                and neighbor_y >= 0 and neighbor_y < MAP_SIZE) {
+                    const data: Vec2 = .{
+                        .x = @floatFromInt(neighbor_x),
+                        .y = @floatFromInt(neighbor_y)
+                    };
+
+                    return_tiles[iterator] = data;
+                }
+
+                iterator += 1;
+            }
+        }
+    }
+
+    return return_tiles;
 }
 

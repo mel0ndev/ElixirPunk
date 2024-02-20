@@ -32,10 +32,18 @@ pub fn initPlayer(alloc: std.mem.Allocator) !void {
         .height = @floatFromInt(@divTrunc(player_texture.height, 2))
     };
     source_rec = Rect{.x = frame_rec.x, .y = frame_rec.y, .width = 32, .height = 32}; 
+    
+    var spawn_tile: Vec2 = .{}; 
+    for (tiles.tile_list.items) |tile| {
+        if (tile.tile_id < 16) {
+            spawn_tile = tile.tile_data.pos; 
+            break; 
+        }
+    } 
 
     player = Player.init(
-        32, 
-        32,
+        spawn_tile.x * 32, 
+        spawn_tile.y * 32,
         16, 
         16, 
         0.0
