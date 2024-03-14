@@ -6,11 +6,20 @@ const Vec2 = raylib.Vector2;
 
 
 
-pub fn distance(current: Vec2, target: Vec2) f32 { const a = std.math.pow(f32, (target.y - current.y), 2); 
+pub fn distance(current: Vec2, target: Vec2) f32 { 
+    const a = std.math.pow(f32, (target.y - current.y), 2); 
     const b = std.math.pow(f32, (target.x - current.x), 2); 
     const dis: f32 = std.math.sqrt(a + b); 
 
     return dis; 
+}
+
+pub fn abs(n: i32) i32 {
+    if (n < 0) {
+        return n * -1; 
+    }
+
+    return n; 
 }
 
 pub fn direction(current: Vec2, target: Vec2) Vec2 {

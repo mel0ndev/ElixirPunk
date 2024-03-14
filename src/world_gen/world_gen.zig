@@ -89,8 +89,8 @@ pub fn deinitMap(alloc: std.mem.Allocator) void {
 fn generateMapData() !void {
     for (0..10) |i| {
         _ = i; 
-        const random_num_x: u16 = r.random().intRangeLessThan(u16, 16, MAP_SIZE - 16);
-        const random_num_y: u16 = r.random().intRangeLessThan(u16, 16, MAP_SIZE - 16);
+        const random_num_x: u16 = r.random().intRangeLessThan(u16, 8, MAP_SIZE - 8);
+        const random_num_y: u16 = r.random().intRangeLessThan(u16, 8, MAP_SIZE - 8);
         const starting_point: iVec2 = .{.x = @intCast(random_num_x), .y = @intCast(random_num_y)}; 
         try tile_deque.pushBack(starting_point); 
          
@@ -155,7 +155,7 @@ fn mapCleanup() void {
                 map[x][y] = SOLID; 
             }
 
-            if (x < 16 or y < 16 or x > MAP_SIZE - 16 or y > MAP_SIZE - 16) {
+            if (x < 4 or y < 4 or x > MAP_SIZE - 4 or y > MAP_SIZE - 4) {
                 map[x][y] = WATER; 
             }
         }
@@ -306,7 +306,7 @@ fn placementToTileId(tile_data: tiles.TilePlacement) u8 {
     return tiles.tile_map_placement_data.get(tile_data).?;
 }
 
-fn getLocalNeighborsAsArray(tile_x: i32, tile_y: i32) [8]Vec2 {
+pub fn getLocalNeighborsAsArray(tile_x: i32, tile_y: i32) [8]Vec2 {
     var return_tiles: [8]Vec2 = undefined;
     var iterator: u8 = 0;
 

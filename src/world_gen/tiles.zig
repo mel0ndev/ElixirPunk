@@ -144,6 +144,11 @@ fn loadTextureMap() !void {
     tile_texture_map = raylib.LoadTexture("src/assets/tiles/grass.png");  
 }
 
+pub fn getTileFromTileList(tile_x: f32, tile_y: f32) *Tile {
+    const index = @as(usize, @intFromFloat(tile_x + tile_y * world.MAP_SIZE)); 
+    return &tile_list.items[index]; 
+}
+
 pub fn setTileMap() !void {
     for (0..GRASS_TILE_SIZE) |i| {
         const casted_i: f32 = @floatFromInt(i); 
@@ -194,10 +199,10 @@ pub fn drawTiles() void {
         };
 
     
-        if (x >= player_pos.x - 32 and 
-            x <= player_pos.x + 32 and
-            y <= player_pos.y + 16 and
-            y >= player_pos.y - 16) {
+        if (x >= player_pos.x - 40 and 
+            x <= player_pos.x + 40 and
+            y <= player_pos.y + 24 and
+            y >= player_pos.y - 24) {
             raylib.DrawTexturePro(
                 tile_texture_map, 
                 tilemap_pos, 
@@ -260,5 +265,4 @@ pub fn drawTiles() void {
         }
     }
 }
-
 
